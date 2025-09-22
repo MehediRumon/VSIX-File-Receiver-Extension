@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            width: 300px;
+            padding: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 10px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        
+        button {
+            background-color: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        button:hover {
+            background-color: #005a9e;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 5px;
+            border-radius: 3px;
+            text-align: center;
+            font-size: 12px;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h3>Send File to Visual Studio</h3>
+    
+    <div class="form-group">
+        <label for="fileName">File Name:</label>
+        <input type="text" id="fileName" placeholder="example.txt" />
+    </div>
+    
+    <div class="form-group">
+        <label for="fileContent">File Content:</label>
+        <textarea id="fileContent" placeholder="Enter your file content here..."></textarea>
+    </div>
+    
+    <button id="sendButton">Send to Visual Studio</button>
+    
+    <div id="status" class="status" style="display: none;"></div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>

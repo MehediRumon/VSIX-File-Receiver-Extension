@@ -1,7 +1,10 @@
 ﻿using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using EnvDTE;
+using EnvDTE80;
 using Task = System.Threading.Tasks.Task;
 
 namespace FileReceiverExtension
@@ -25,12 +28,15 @@ namespace FileReceiverExtension
     /// </remarks>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(FileReceiverExtensionPackage.PackageGuidString)]
+    [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionExists_string, PackageAutoLoadFlags.BackgroundLoad)]
     public sealed class FileReceiverExtensionPackage : AsyncPackage
     {
         /// <summary>
         /// FileReceiverExtensionPackage GUID string.
         /// </summary>
         public const string PackageGuidString = "39b2c64c-c6ee-4495-9330-23790b88a82f";
+
+        private FileReceiverService _fileReceiverService;
 
         #region Package Members
 
@@ -46,6 +52,34 @@ namespace FileReceiverExtension
             // When initialized asynchronously, the current thread may be a background thread at this point.
             // Do any initialization that requires the UI thread after switching to the UI thread.
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+            try
+            {
+                // Get required services
+                var outputWindow = await GetServiceAsync(typeof(SVsOutputWindow)) as IVsOutputWindow;
+                var dte = await GetServiceAsync(typeof(DTE)) as DTE2;
+
+                if (outputWindow != null && dte != null)
+                {
+                    // Initialize and start the file receiver service
+                    _fileReceiverService = new FileReceiverService(outputWindow, dte);
+                    await _fileReceiverService.StartAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log initialization error
+                System.Diagnostics.Debug.WriteLine($"FileReceiverExtension initialization error: {ex.Message}");
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _fileReceiverService?.Stop();
+            }
+            base.Dispose(disposing);
         }
 
         #endregion
