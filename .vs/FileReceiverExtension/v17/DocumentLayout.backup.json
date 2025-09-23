@@ -11,8 +11,8 @@
       "RelativeMoniker": "D:0:0:{7AE044A0-F702-4CAF-A0D5-2BEA8385D190}|FileReceiverExtension\\FileReceiverExtension.csproj|solutionrelative:filereceiverextension\\filereceiverextensionpackage.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{7AE044A0-F702-4CAF-A0D5-2BEA8385D190}|FileReceiverExtension\\FileReceiverExtension.csproj|E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\filereceiverextension\\source.extension.vsixmanifest||{2868F8ED-DE25-439D-9F59-AD52458E9328}",
-      "RelativeMoniker": "D:0:0:{7AE044A0-F702-4CAF-A0D5-2BEA8385D190}|FileReceiverExtension\\FileReceiverExtension.csproj|solutionrelative:filereceiverextension\\source.extension.vsixmanifest||{2868F8ED-DE25-439D-9F59-AD52458E9328}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\debug-project-detection.html||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:debug-project-detection.html||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     }
   ],
   "DocumentGroupContainers": [
@@ -22,7 +22,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 16,
+          "SelectedChildIndex": 17,
           "Children": [
             {
               "$type": "Bookmark",
@@ -86,6 +86,19 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "debug-project-detection.html",
+              "DocumentMoniker": "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\debug-project-detection.html",
+              "RelativeDocumentMoniker": "debug-project-detection.html",
+              "ToolTip": "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\debug-project-detection.html",
+              "RelativeToolTip": "debug-project-detection.html",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAOsAAAAHAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001512|",
+              "WhenOpened": "2025-09-23T07:41:00.31Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 1,
               "Title": "FileReceiverExtensionPackage.cs",
               "DocumentMoniker": "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\FileReceiverExtension\\FileReceiverExtensionPackage.cs",
@@ -104,21 +117,10 @@
               "RelativeDocumentMoniker": "FileReceiverExtension\\FileReceiverService.cs",
               "ToolTip": "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\FileReceiverExtension\\FileReceiverService.cs",
               "RelativeToolTip": "FileReceiverExtension\\FileReceiverService.cs",
-              "ViewState": "AgIAAAkAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAACMDAAAAAAAAAIAwwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-09-23T04:01:23.303Z",
               "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "source.extension.vsixmanifest [Design]",
-              "DocumentMoniker": "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\FileReceiverExtension\\source.extension.vsixmanifest",
-              "RelativeDocumentMoniker": "FileReceiverExtension\\source.extension.vsixmanifest",
-              "ToolTip": "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\FileReceiverExtension\\source.extension.vsixmanifest [Design]",
-              "RelativeToolTip": "FileReceiverExtension\\source.extension.vsixmanifest [Design]",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003464|",
-              "WhenOpened": "2025-09-23T03:41:29.262Z"
             }
           ]
         }

@@ -238,25 +238,61 @@ namespace FileReceiverExtension
         {
             try
             {
-                await LogAsync("Retrieving project folder structure");
+                await LogAsync("=== FOLDER REQUEST DEBUG ===");
+                await LogAsync("Processing GET request for folder structure");
 
-                // Get the active project
+                // Ensure we're on the UI thread for DTE operations
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                // Check if solution is open
+                if (_dte?.Solution == null || !_dte.Solution.IsOpen)
+                {
+                    await LogAsync("ERROR: No solution is currently open in Visual Studio");
+                    response.StatusCode = 404;
+                    await WriteResponseAsync(response, "{\"error\":\"No solution is open\"}");
+                    return;
+                }
+
+                await LogAsync($"Solution is open: {_dte.Solution.FileName}");
+                await LogAsync($"Solution has {_dte.Solution.Projects?.Count ?? 0} projects");
+
+                // Get the active project with enhanced debugging
                 var project = GetActiveProject();
                 if (project == null)
                 {
-                    await LogAsync("No active project found for folder request");
+                    await LogAsync("ERROR: No active project found after exhaustive search");
+                    await LogAsync("TROUBLESHOOTING TIPS:");
+                    await LogAsync("1. Make sure you have a project file (.csproj, .vbproj, etc.) open");
+                    await LogAsync("2. Try selecting a project in Solution Explorer");
+                    await LogAsync("3. Try opening a file from the project you want to use");
+                    await LogAsync("4. Check if your project is properly loaded (not unloaded)");
+                    
                     response.StatusCode = 404;
-                    await WriteResponseAsync(response, "{\"error\":\"No active project found\"}");
+                    await WriteResponseAsync(response, "{\"error\":\"No active project found. Please select a project in Solution Explorer or open a file from your project.\"}");
                     return;
                 }
+
+                await LogAsync($"SUCCESS: Found active project: {project.Name}");
+                await LogAsync($"Project full name: {project.FullName}");
 
                 // Get project directory
                 var projectDir = Path.GetDirectoryName(project.FullName);
                 if (string.IsNullOrEmpty(projectDir))
                 {
-                    await LogAsync("Could not determine project directory");
+                    await LogAsync($"ERROR: Could not determine project directory from: {project.FullName}");
                     response.StatusCode = 500;
                     await WriteResponseAsync(response, "{\"error\":\"Could not determine project directory\"}");
+                    return;
+                }
+
+                await LogAsync($"Project directory: {projectDir}");
+
+                // Verify directory exists
+                if (!Directory.Exists(projectDir))
+                {
+                    await LogAsync($"ERROR: Project directory does not exist: {projectDir}");
+                    response.StatusCode = 500;
+                    await WriteResponseAsync(response, "{\"error\":\"Project directory does not exist\"}");
                     return;
                 }
 
@@ -267,11 +303,13 @@ namespace FileReceiverExtension
                 response.StatusCode = 200;
                 response.ContentType = "application/json";
                 await WriteResponseAsync(response, jsonResponse);
-                await LogAsync($"Sent folder structure with {folders.Count} folders");
+                await LogAsync($"SUCCESS: Sent folder structure with {folders.Count} folders");
+                await LogAsync("=== FOLDER REQUEST COMPLETE ===");
             }
             catch (Exception ex)
             {
-                await LogAsync($"Error handling get folders request: {ex.Message}");
+                await LogAsync($"ERROR in HandleGetFoldersAsync: {ex.Message}");
+                await LogAsync($"Stack trace: {ex.StackTrace}");
                 response.StatusCode = 500;
                 await WriteResponseAsync(response, "{\"error\":\"Internal server error\"}");
             }
@@ -604,51 +642,128 @@ namespace FileReceiverExtension
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
 
-                // Try to get the active project from solution explorer
-                var items = _dte.SelectedItems;
-                if (items.Count > 0)
+                // Log all available information for debugging
+                LogAsync($"Attempting to get active project. Solution loaded: {_dte.Solution?.IsOpen}").ConfigureAwait(false);
+                LogAsync($"Total projects in solution: {_dte.Solution?.Projects?.Count ?? 0}").ConfigureAwait(false);
+
+                // Method 1: Try to get the active project from solution explorer selection
+                try
                 {
-                    var item = items.Item(1);
-                    if (item.Project != null)
+                    var items = _dte.SelectedItems;
+                    LogAsync($"Selected items count: {items?.Count ?? 0}").ConfigureAwait(false);
+                    
+                    if (items != null && items.Count > 0)
                     {
-                        return item.Project;
+                        var item = items.Item(1);
+                        if (item?.Project != null)
+                        {
+                            LogAsync($"Found project from selection: {item.Project.Name}").ConfigureAwait(false);
+                            return item.Project;
+                        }
+                        
+                        // Check if selected item belongs to a project
+                        if (item?.ProjectItem?.ContainingProject != null)
+                        {
+                            LogAsync($"Found project from selected item: {item.ProjectItem.ContainingProject.Name}").ConfigureAwait(false);
+                            return item.ProjectItem.ContainingProject;
+                        }
                     }
                 }
-
-                // Try to get from active document
-                var activeDocument = _dte.ActiveDocument;
-                if (activeDocument?.ProjectItem?.ContainingProject != null)
+                catch (Exception ex)
                 {
-                    return activeDocument.ProjectItem.ContainingProject;
+                    LogAsync($"Error getting project from selection: {ex.Message}").ConfigureAwait(false);
                 }
 
-                // Get the startup project
-                var solutionBuild = _dte.Solution.SolutionBuild;
-                if (solutionBuild?.StartupProjects != null)
+                // Method 2: Try to get from active document
+                try
                 {
-                    var startupProjects = (Array)solutionBuild.StartupProjects;
-                    if (startupProjects.Length > 0)
+                    var activeDocument = _dte.ActiveDocument;
+                    if (activeDocument?.ProjectItem?.ContainingProject != null)
                     {
-                        var projectName = startupProjects.GetValue(0).ToString();
+                        LogAsync($"Found project from active document: {activeDocument.ProjectItem.ContainingProject.Name}").ConfigureAwait(false);
+                        return activeDocument.ProjectItem.ContainingProject;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error getting project from active document: {ex.Message}").ConfigureAwait(false);
+                }
+
+                // Method 3: Try to get the startup project
+                try
+                {
+                    var solutionBuild = _dte.Solution?.SolutionBuild;
+                    if (solutionBuild?.StartupProjects != null)
+                    {
+                        var startupProjects = (Array)solutionBuild.StartupProjects;
+                        LogAsync($"Startup projects count: {startupProjects?.Length ?? 0}").ConfigureAwait(false);
+                        
+                        if (startupProjects.Length > 0)
+                        {
+                            var projectName = startupProjects.GetValue(0).ToString();
+                            LogAsync($"Looking for startup project: {projectName}").ConfigureAwait(false);
+                            
+                            foreach (Project project in _dte.Solution.Projects)
+                            {
+                                if (project.Name == projectName)
+                                {
+                                    LogAsync($"Found startup project: {project.Name}").ConfigureAwait(false);
+                                    return project;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error getting startup project: {ex.Message}").ConfigureAwait(false);
+                }
+
+                // Method 4: Try to get any C# or VB.NET project
+                try
+                {
+                    if (_dte.Solution?.Projects != null)
+                    {
                         foreach (Project project in _dte.Solution.Projects)
                         {
-                            if (project.Name == projectName)
+                            LogAsync($"Checking project: {project.Name}, Kind: {project.Kind}").ConfigureAwait(false);
+                            
+                            // Look for C# or VB.NET projects (avoid solution folders and other project types)
+                            if (project.Kind == "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}" || // C# project
+                                project.Kind == "{F184B08F-C81C-45F6-A57F-5ABD9991F28F}" || // VB.NET project
+                                project.Kind == "{9A19103F-16F7-4668-BE54-9A1E7A4F7556}")   // .NET SDK-style project
                             {
+                                LogAsync($"Found suitable project: {project.Name}").ConfigureAwait(false);
                                 return project;
                             }
                         }
                     }
                 }
-
-                // Fall back to first project in solution
-                if (_dte.Solution.Projects.Count > 0)
+                catch (Exception ex)
                 {
-                    return _dte.Solution.Projects.Item(1);
+                    LogAsync($"Error iterating through projects: {ex.Message}").ConfigureAwait(false);
                 }
+
+                // Method 5: Fallback to first project regardless of type
+                try
+                {
+                    if (_dte.Solution?.Projects?.Count > 0)
+                    {
+                        var firstProject = _dte.Solution.Projects.Item(1);
+                        LogAsync($"Using first project as fallback: {firstProject.Name}").ConfigureAwait(false);
+                        return firstProject;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error getting first project: {ex.Message}").ConfigureAwait(false);
+                }
+
+                LogAsync("No active project could be determined").ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                LogAsync($"Error getting active project: {ex.Message}").ConfigureAwait(false);
+                LogAsync($"Error in GetActiveProject: {ex.Message}").ConfigureAwait(false);
             }
 
             return null;

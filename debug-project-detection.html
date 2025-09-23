@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Visual Studio Project Detection Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { background: white; padding: 20px; border-radius: 8px; max-width: 800px; margin: 0 auto; }
+        .debug-section { margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #007bff; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .warning { border-left-color: #ffc107; background: #fff3cd; }
+        button { padding: 10px 20px; margin: 10px 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .logs { background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px; height: 300px; overflow-y: auto; margin: 10px 0; }
+        .instructions { background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        h1 { color: #333; text-align: center; }
+        h3 { color: #495057; margin-top: 0; }
+        .status-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .connected { background-color: #28a745; }
+        .disconnected { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>?? Visual Studio Project Detection Debug Tool</h1>
+        
+        <div class="instructions">
+            <h3>?? Before Testing:</h3>
+            <ol>
+                <li><strong>Visual Studio Setup:</strong> Make sure Visual Studio is running with your project loaded</li>
+                <li><strong>Extension Status:</strong> Check that the File Receiver Extension is installed and active</li>
+                <li><strong>Solution Open:</strong> Ensure you have a solution (.sln) or project (.csproj) open</li>
+                <li><strong>Project Selection:</strong> Try selecting your project in Solution Explorer</li>
+            </ol>
+        </div>
+
+        <div class="debug-section" id="connection-status">
+            <h3><span class="status-indicator disconnected"></span>Connection Status</h3>
+            <p>Checking connection to Visual Studio extension...</p>
+        </div>
+
+        <div class="debug-section">
+            <h3>?? Debug Tests</h3>
+            <button onclick="testConnection()">Test Connection</button>
+            <button onclick="testFolderEndpoint()">Test Folder Endpoint</button>
+            <button onclick="testFileCreation()">Test File Creation</button>
+            <button onclick="clearLogs()">Clear Logs</button>
+        </div>
+
+        <div class="debug-section">
+            <h3>?? Debug Logs</h3>
+            <div class="logs" id="debug-logs">Click "Test Connection" to start debugging...</div>
+        </div>
+
+        <div class="debug-section">
+            <h3>?? Troubleshooting Solutions</h3>
+            <div id="troubleshooting-tips">
+                <h4>Common Issues and Solutions:</h4>
+                <ul>
+                    <li><strong>HTTP 404 - No active project found:</strong>
+                        <ul>
+                            <li>Select a project in Solution Explorer</li>
+                            <li>Open a file from your project</li>
+                            <li>Set a startup project (right-click project ? Set as StartUp Project)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Connection Failed:</strong>
+                        <ul>
+                            <li>Restart Visual Studio</li>
+                            <li>Reinstall the File Receiver Extension</li>
+                            <li>Check if port 8080 is available</li>
+                        </ul>
+                    </li>
+                    <li><strong>Extension Not Loading:</strong>
+                        <ul>
+                            <li>Check Visual Studio ? Extensions ? Manage Extensions</li>
+                            <li>Look for errors in Visual Studio ? View ? Output ? File Receiver Extension</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logs = document.getElementById('debug-logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const typePrefix = type === 'error' ? '?' : type === 'success' ? '?' : type === 'warning' ? '??' : '??';
+            logs.innerHTML += `[${timestamp}] ${typePrefix} ${message}\n`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('debug-logs').innerHTML = '';
+        }
+
+        function updateConnectionStatus(connected, message) {
+            const statusDiv = document.getElementById('connection-status');
+            const indicator = statusDiv.querySelector('.status-indicator');
+            const paragraph = statusDiv.querySelector('p');
+            
+            if (connected) {
+                statusDiv.className = 'debug-section success';
+                indicator.className = 'status-indicator connected';
+                statusDiv.querySelector('h3').innerHTML = '<span class="status-indicator connected"></span>Connection Status - CONNECTED';
+                paragraph.textContent = message || 'Successfully connected to Visual Studio File Receiver Extension';
+            } else {
+                statusDiv.className = 'debug-section error';
+                indicator.className = 'status-indicator disconnected';
+                statusDiv.querySelector('h3').innerHTML = '<span class="status-indicator disconnected"></span>Connection Status - DISCONNECTED';
+                paragraph.textContent = message || 'Cannot connect to Visual Studio extension. Make sure Visual Studio is running with the extension installed.';
+            }
+        }
+
+        async function testConnection() {
+            log('Testing connection to localhost:8080...');
+            
+            try {
+                const response = await fetch('http://localhost:8080/', { 
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'http://localhost'
+                    }
+                });
+                
+                if (response.ok) {
+                    log('Connection test successful!', 'success');
+                    updateConnectionStatus(true);
+                    return true;
+                } else {
+                    log(`Connection test failed: HTTP ${response.status}`, 'error');
+                    updateConnectionStatus(false, `HTTP ${response.status} - Extension responding but with errors`);
+                    return false;
+                }
+            } catch (error) {
+                log(`Connection test failed: ${error.message}`, 'error');
+                updateConnectionStatus(false, `Connection failed: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testFolderEndpoint() {
+            log('Testing folder endpoint...');
+            
+            try {
+                const response = await fetch('http://localhost:8080/folders', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const responseText = await response.text();
+                log(`Folder endpoint response: HTTP ${response.status}`);
+                log(`Response body: ${responseText}`);
+
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        log(`Successfully retrieved ${data.folders ? data.folders.length : 0} folders`, 'success');
+                        
+                        if (data.folders && data.folders.length > 0) {
+                            log('Available folders:');
+                            data.folders.forEach(folder => {
+                                log(`  ?? ${folder.name} (${folder.path || 'root'})`);
+                            });
+                        }
+                    } catch (parseError) {
+                        log(`Failed to parse JSON response: ${parseError.message}`, 'warning');
+                    }
+                } else {
+                    log(`Folder endpoint failed: HTTP ${response.status}`, 'error');
+                    
+                    // Try to parse error response
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        if (errorData.error) {
+                            log(`Error details: ${errorData.error}`, 'error');
+                            
+                            // Provide specific guidance based on error
+                            if (errorData.error.includes('No active project found')) {
+                                log('?? SOLUTION: Select a project in Visual Studio Solution Explorer', 'warning');
+                                log('?? OR: Open a file from your project', 'warning');
+                                log('?? OR: Set a startup project (right-click project ? Set as StartUp Project)', 'warning');
+                            }
+                        }
+                    } catch (e) {
+                        log(`Raw error response: ${responseText}`, 'error');
+                    }
+                }
+            } catch (error) {
+                log(`Network error testing folder endpoint: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFileCreation() {
+            log('Testing file creation...');
+            
+            const testData = {
+                fileName: `debug-test-${Date.now()}.txt`,
+                content: `Debug test file created at ${new Date().toISOString()}\n\nThis file was created by the debug tool to test project detection.`
+            };
+
+            try {
+                const response = await fetch('http://localhost:8080/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+
+                const responseText = await response.text();
+                log(`File creation response: HTTP ${response.status}`);
+                log(`Response: ${responseText}`);
+
+                if (response.ok) {
+                    log(`? File "${testData.fileName}" created successfully!`, 'success');
+                    log('Check your project in Visual Studio to see the new file.', 'success');
+                } else {
+                    log(`File creation failed: HTTP ${response.status}`, 'error');
+                    log(`Error details: ${responseText}`, 'error');
+                }
+            } catch (error) {
+                log(`Network error testing file creation: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-test connection on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(testConnection, 1000);
+        });
+    </script>
+</body>
+</html>
