@@ -878,29 +878,40 @@ namespace FileReceiverExtension
                     LogAsync($"Error getting startup project: {ex.Message}").ConfigureAwait(false);
                 }
 
-                // Method 4: Try to get any C# or VB.NET project
+                // Method 4: Try to get any suitable project using our enhanced scanning
                 try
                 {
                     if (_dte.Solution?.Projects != null)
                     {
-                        foreach (Project project in _dte.Solution.Projects)
+                        var allProjects = new List<ProjectInfo>();
+                        // Use a synchronous version for this method since GetActiveProject is called synchronously
+                        ScanProjectsRecursiveSync(_dte.Solution.Projects, allProjects);
+                        
+                        // Look for suitable project types
+                        foreach (var projectInfo in allProjects)
                         {
-                            LogAsync($"Checking project: {project.Name}, Kind: {project.Kind}").ConfigureAwait(false);
-                            
-                            // Look for C# or VB.NET projects (avoid solution folders and other project types)
-                            if (project.Kind == "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}" || // C# project
-                                project.Kind == "{F184B08F-C81C-45F6-A57F-5ABD9991F28F}" || // VB.NET project
-                                project.Kind == "{9A19103F-16F7-4668-BE54-9A1E7A4F7556}")   // .NET SDK-style project
+                            // Find the actual project object
+                            var project = FindProjectByFullName(projectInfo.FullName);
+                            if (project != null)
                             {
-                                LogAsync($"Found suitable project: {project.Name}").ConfigureAwait(false);
-                                return project;
+                                LogAsync($"Checking project: {project.Name}, Kind: {project.Kind}").ConfigureAwait(false);
+                                
+                                // Look for C# or VB.NET projects (avoid solution folders and other project types)
+                                if (project.Kind == "{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}" || // C# project
+                                    project.Kind == "{F184B08F-C81C-45F6-A57F-5ABD9991F28F}" || // VB.NET project
+                                    project.Kind == "{9A19103F-16F7-4668-BE54-9A1E7A4F7556}" || // .NET SDK-style project
+                                    project.Kind == "{82b43b9b-a64c-4715-b499-d71e9ca2bd60}")   // VSIX project
+                                {
+                                    LogAsync($"Found suitable project: {project.Name}").ConfigureAwait(false);
+                                    return project;
+                                }
                             }
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    LogAsync($"Error iterating through projects: {ex.Message}").ConfigureAwait(false);
+                    LogAsync($"Error using enhanced project scanning: {ex.Message}").ConfigureAwait(false);
                 }
 
                 // Method 5: Fallback to first project regardless of type
@@ -940,39 +951,8 @@ namespace FileReceiverExtension
                 {
                     await LogAsync($"Solution loaded, scanning {_dte.Solution.Projects.Count} items...");
                     
-                    foreach (Project project in _dte.Solution.Projects)
-                    {
-                        try
-                        {
-                            // Skip solution folders and other non-project types  
-                            if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}") // Solution Folder GUID
-                            {
-                                await LogAsync($"Skipping solution folder: {project.Name}");
-                                continue;
-                            }
-
-                            var projectDir = Path.GetDirectoryName(project.FullName);
-                            if (!string.IsNullOrEmpty(projectDir) && Directory.Exists(projectDir))
-                            {
-                                projects.Add(new ProjectInfo
-                                {
-                                    Name = project.Name,
-                                    FullName = project.FullName,
-                                    Directory = projectDir,
-                                    Kind = project.Kind
-                                });
-                                await LogAsync($"Added project: {project.Name} at {projectDir}");
-                            }
-                            else
-                            {
-                                await LogAsync($"Skipping project {project.Name}: Invalid or non-existent directory");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            await LogAsync($"Error processing project {project?.Name}: {ex.Message}");
-                        }
-                    }
+                    // Use recursive function to handle solution folders
+                    await ScanProjectsRecursiveAsync(_dte.Solution.Projects, projects);
                 }
                 else
                 {
@@ -986,6 +966,210 @@ namespace FileReceiverExtension
 
             await LogAsync($"Project detection complete: Found {projects.Count} projects");
             return projects;
+        }
+
+        private async Task ScanProjectsRecursiveAsync(Projects projectsCollection, List<ProjectInfo> foundProjects)
+        {
+            foreach (Project project in projectsCollection)
+            {
+                try
+                {
+                    await LogAsync($"Scanning item: {project.Name}, Kind: {project.Kind}");
+                    
+                    // Handle solution folders - recursively scan their projects
+                    if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}") // Solution Folder GUID
+                    {
+                        await LogAsync($"Found solution folder: {project.Name}, scanning contents...");
+                        
+                        // Solution folders can contain projects - scan them recursively
+                        if (project.ProjectItems != null)
+                        {
+                            foreach (ProjectItem item in project.ProjectItems)
+                            {
+                                try
+                                {
+                                    if (item.SubProject != null)
+                                    {
+                                        await LogAsync($"Found project in solution folder: {item.SubProject.Name}");
+                                        await ProcessProjectAsync(item.SubProject, foundProjects);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    await LogAsync($"Error processing project item in solution folder: {ex.Message}");
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Regular project - process it
+                        await ProcessProjectAsync(project, foundProjects);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await LogAsync($"Error processing project {project?.Name}: {ex.Message}");
+                }
+            }
+        }
+
+        private async Task ProcessProjectAsync(Project project, List<ProjectInfo> foundProjects)
+        {
+            try
+            {
+                var projectDir = Path.GetDirectoryName(project.FullName);
+                if (!string.IsNullOrEmpty(projectDir) && Directory.Exists(projectDir))
+                {
+                    foundProjects.Add(new ProjectInfo
+                    {
+                        Name = project.Name,
+                        FullName = project.FullName,
+                        Directory = projectDir,
+                        Kind = project.Kind
+                    });
+                    await LogAsync($"Added project: {project.Name} at {projectDir}");
+                }
+                else
+                {
+                    await LogAsync($"Skipping project {project.Name}: Invalid or non-existent directory");
+                }
+            }
+            catch (Exception ex)
+            {
+                await LogAsync($"Error processing individual project {project?.Name}: {ex.Message}");
+            }
+        }
+
+        private Project FindProjectByFullName(string fullName)
+        {
+            try
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                
+                if (_dte?.Solution?.Projects != null)
+                {
+                    return FindProjectRecursive(_dte.Solution.Projects, fullName);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogAsync($"Error finding project by full name: {ex.Message}").ConfigureAwait(false);
+            }
+            return null;
+        }
+
+        private Project FindProjectRecursive(Projects projectsCollection, string fullName)
+        {
+            foreach (Project project in projectsCollection)
+            {
+                try
+                {
+                    // Check if this is the project we're looking for
+                    if (string.Equals(project.FullName, fullName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return project;
+                    }
+                    
+                    // If this is a solution folder, search within it
+                    if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && project.ProjectItems != null)
+                    {
+                        foreach (ProjectItem item in project.ProjectItems)
+                        {
+                            try
+                            {
+                                if (item.SubProject != null && 
+                                    string.Equals(item.SubProject.FullName, fullName, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    return item.SubProject;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                LogAsync($"Error checking project item: {ex.Message}").ConfigureAwait(false);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error in recursive project search: {ex.Message}").ConfigureAwait(false);
+                }
+            }
+            return null;
+        }
+
+        private void ScanProjectsRecursiveSync(Projects projectsCollection, List<ProjectInfo> foundProjects)
+        {
+            foreach (Project project in projectsCollection)
+            {
+                try
+                {
+                    LogAsync($"Scanning item: {project.Name}, Kind: {project.Kind}").ConfigureAwait(false);
+                    
+                    // Handle solution folders - recursively scan their projects
+                    if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}") // Solution Folder GUID
+                    {
+                        LogAsync($"Found solution folder: {project.Name}, scanning contents...").ConfigureAwait(false);
+                        
+                        // Solution folders can contain projects - scan them recursively
+                        if (project.ProjectItems != null)
+                        {
+                            foreach (ProjectItem item in project.ProjectItems)
+                            {
+                                try
+                                {
+                                    if (item.SubProject != null)
+                                    {
+                                        LogAsync($"Found project in solution folder: {item.SubProject.Name}").ConfigureAwait(false);
+                                        ProcessProjectSync(item.SubProject, foundProjects);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    LogAsync($"Error processing project item in solution folder: {ex.Message}").ConfigureAwait(false);
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Regular project - process it
+                        ProcessProjectSync(project, foundProjects);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error processing project {project?.Name}: {ex.Message}").ConfigureAwait(false);
+                }
+            }
+        }
+
+        private void ProcessProjectSync(Project project, List<ProjectInfo> foundProjects)
+        {
+            try
+            {
+                var projectDir = Path.GetDirectoryName(project.FullName);
+                if (!string.IsNullOrEmpty(projectDir) && Directory.Exists(projectDir))
+                {
+                    foundProjects.Add(new ProjectInfo
+                    {
+                        Name = project.Name,
+                        FullName = project.FullName,
+                        Directory = projectDir,
+                        Kind = project.Kind
+                    });
+                    LogAsync($"Added project: {project.Name} at {projectDir}").ConfigureAwait(false);
+                }
+                else
+                {
+                    LogAsync($"Skipping project {project.Name}: Invalid or non-existent directory").ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogAsync($"Error processing individual project {project?.Name}: {ex.Message}").ConfigureAwait(false);
+            }
         }
 
         private string CreateProjectsJson(List<ProjectInfo> projects)
