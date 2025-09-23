@@ -270,26 +270,14 @@ namespace FileReceiverExtension
                 {
                     await LogAsync($"Using specified project directory: {projectDirectory}");
                     
-                    // Find the project by directory
+                    // Find the project by directory using recursive search to handle solution folders
                     if (_dte?.Solution?.Projects != null)
                     {
-                        foreach (Project proj in _dte.Solution.Projects)
+                        project = FindProjectByDirectoryRecursive(_dte.Solution.Projects, projectDirectory);
+                        if (project != null)
                         {
-                            try
-                            {
-                                var projDir = Path.GetDirectoryName(proj.FullName);
-                                if (string.Equals(projDir, projectDirectory, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    project = proj;
-                                    projectDir = projDir;
-                                    await LogAsync($"Found matching project: {proj.Name}");
-                                    break;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                await LogAsync($"Error checking project {proj?.Name}: {ex.Message}");
-                            }
+                            projectDir = Path.GetDirectoryName(project.FullName);
+                            await LogAsync($"Found matching project: {project.Name}");
                         }
                     }
 
@@ -701,26 +689,14 @@ namespace FileReceiverExtension
                 {
                     await LogAsync($"Using specified project directory: {specificProjectDirectory}");
                     
-                    // Find the project by directory
+                    // Find the project by directory using recursive search to handle solution folders
                     if (_dte?.Solution?.Projects != null)
                     {
-                        foreach (Project proj in _dte.Solution.Projects)
+                        project = FindProjectByDirectoryRecursive(_dte.Solution.Projects, specificProjectDirectory);
+                        if (project != null)
                         {
-                            try
-                            {
-                                var projDir = Path.GetDirectoryName(proj.FullName);
-                                if (string.Equals(projDir, specificProjectDirectory, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    project = proj;
-                                    projectDir = projDir;
-                                    await LogAsync($"Found matching project: {proj.Name}");
-                                    break;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                await LogAsync($"Error checking project {proj?.Name}: {ex.Message}");
-                            }
+                            projectDir = Path.GetDirectoryName(project.FullName);
+                            await LogAsync($"Found matching project: {project.Name}");
                         }
                     }
 
@@ -1055,6 +1031,50 @@ namespace FileReceiverExtension
             catch (Exception ex)
             {
                 LogAsync($"Error finding project by full name: {ex.Message}").ConfigureAwait(false);
+            }
+            return null;
+        }
+
+        private Project FindProjectByDirectoryRecursive(Projects projectsCollection, string targetDirectory)
+        {
+            foreach (Project project in projectsCollection)
+            {
+                try
+                {
+                    // Check if this is the project we're looking for
+                    var projDir = Path.GetDirectoryName(project.FullName);
+                    if (string.Equals(projDir, targetDirectory, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return project;
+                    }
+                    
+                    // If this is a solution folder, search within it
+                    if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && project.ProjectItems != null)
+                    {
+                        foreach (ProjectItem item in project.ProjectItems)
+                        {
+                            try
+                            {
+                                if (item.SubProject != null)
+                                {
+                                    var subProjDir = Path.GetDirectoryName(item.SubProject.FullName);
+                                    if (string.Equals(subProjDir, targetDirectory, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        return item.SubProject;
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                LogAsync($"Error checking project item: {ex.Message}").ConfigureAwait(false);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error in recursive project directory search: {ex.Message}").ConfigureAwait(false);
+                }
             }
             return null;
         }

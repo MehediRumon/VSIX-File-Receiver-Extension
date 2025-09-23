@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Project Selection Fix - File Receiver Extension</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; background: #f9f9f9; }
+        .error { background-color: #ffebee; border-color: #f44336; }
+        .success { background-color: #e8f5e9; border-color: #4caf50; }
+        .warning { background-color: #fff3e0; border-color: #ff9800; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        select, input { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
+        .console { background: #2d2d2d; color: #fff; padding: 10px; border: 1px solid #555; height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .step { margin: 10px 0; }
+        .step-title { font-weight: bold; color: #1976d2; margin-bottom: 5px; }
+        .step-description { color: #666; font-size: 14px; margin-bottom: 10px; }
+        label { display: block; margin: 10px 0 5px 0; font-weight: bold; }
+        h1 { color: #1976d2; }
+        h3 { color: #333; margin-top: 0; }
+        .fix-info { background: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Test Project Selection Fix</h1>
+    
+    <div class="fix-info">
+        <strong>Fix Applied:</strong> Implemented recursive project directory search to handle projects nested in solution folders.
+        <br><strong>Issue:</strong> When projects were organized in solution folders, the extension couldn't find them when selecting a project for folder loading.
+        <br><strong>Solution:</strong> Added <code>FindProjectByDirectoryRecursive</code> method that searches through solution folders.
+    </div>
+    
+    <div class="test-section">
+        <h3>Step 1: Load All Projects</h3>
+        <div class="step-description">This tests if all projects in the solution are detected, including those nested in solution folders.</div>
+        <button onclick="loadProjects()">🔄 Load Projects from Visual Studio</button>
+        <div id="projectStatus" class="status"></div>
+        
+        <label for="projectSelect">Select a Project:</label>
+        <select id="projectSelect" onchange="onProjectChange()">
+            <option value="">Choose a project...</option>
+        </select>
+        <div id="selectedProjectInfo" style="margin-top: 10px; font-size: 14px; color: #666;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Step 2: Load Folders for Selected Project</h3>
+        <div class="step-description">This tests if folders can be loaded for the selected project (this is where the error typically occurs).</div>
+        <button onclick="loadFolders()" id="loadFoldersBtn" disabled>📁 Load Folders for Selected Project</button>
+        <div id="folderStatus" class="status"></div>
+        
+        <label for="folderSelect">Available Folders:</label>
+        <select id="folderSelect" disabled>
+            <option value="">Select project first...</option>
+        </select>
+    </div>
+
+    <div class="test-section">
+        <h3>Step 3: Test File Send (Optional)</h3>
+        <div class="step-description">Test sending a file to the selected project and folder combination.</div>
+        
+        <label for="testFileName">File Name:</label>
+        <input type="text" id="testFileName" value="ProjectSelectionTest.txt" placeholder="Enter filename">
+        
+        <label for="testContent">File Content:</label>
+        <textarea id="testContent" style="height: 80px;" placeholder="Enter file content">This is a test file to verify project selection fix.
+Created on: ${new Date().toLocaleString()}
+Selected project directory: [Will be filled by JavaScript]</textarea>
+        
+        <button onclick="sendTestFile()" id="sendFileBtn" disabled>📤 Send Test File</button>
+        <div id="sendStatus" class="status"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Debug Console</h3>
+        <div id="console" class="console"></div>
+        <button onclick="clearConsole()">🗑️ Clear Console</button>
+    </div>
+
+    <script>
+        let selectedProjectDir = '';
+        let selectedProjectFullName = '';
+
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#51cf66' : type === 'warning' ? '#ffd43b' : '#74c0fc';
+            console.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span>\n`;
+            console.scrollTop = console.scrollHeight;
+            window.console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearConsole() {
+            document.getElementById('console').innerHTML = '';
+        }
+
+        function setStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = message;
+            element.className = `status ${type}`;
+        }
+
+        function loadProjects() {
+            log('Starting project load test...');
+            setStatus('projectStatus', '🔄 Loading projects from Visual Studio...', 'warning');
+            
+            const projectSelect = document.getElementById('projectSelect');
+            projectSelect.innerHTML = '<option value="">Loading...</option>';
+            
+            fetch('http://localhost:8080/projects')
+                .then(response => {
+                    log(`Response: ${response.status} ${response.statusText}`);
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    log(`Projects response: ${JSON.stringify(data, null, 2)}`);
+                    projectSelect.innerHTML = '<option value="">Choose a project...</option>';
+                    
+                    if (data.projects && data.projects.length > 0) {
+                        data.projects.forEach((project, index) => {
+                            log(`Project ${index + 1}: ${project.name} -> ${project.directory}`);
+                            const option = document.createElement('option');
+                            option.value = project.directory;
+                            option.textContent = `${project.name} (${project.directory})`;
+                            option.dataset.fullName = project.fullName;
+                            option.dataset.directory = project.directory;
+                            projectSelect.appendChild(option);
+                        });
+                        
+                        setStatus('projectStatus', `✅ Successfully loaded ${data.projects.length} projects`, 'success');
+                        log(`Successfully loaded ${data.projects.length} projects`, 'success');
+                    } else {
+                        setStatus('projectStatus', '⚠️ No projects found in solution', 'warning');
+                        log('No projects found in response', 'warning');
+                    }
+                })
+                .catch(error => {
+                    log(`ERROR loading projects: ${error.message}`, 'error');
+                    setStatus('projectStatus', `❌ Error: ${error.message}`, 'error');
+                    projectSelect.innerHTML = '<option value="">Error loading projects</option>';
+                });
+        }
+
+        function onProjectChange() {
+            const projectSelect = document.getElementById('projectSelect');
+            const folderSelect = document.getElementById('folderSelect');
+            const loadFoldersBtn = document.getElementById('loadFoldersBtn');
+            const sendFileBtn = document.getElementById('sendFileBtn');
+            const selectedProjectInfo = document.getElementById('selectedProjectInfo');
+            
+            selectedProjectDir = projectSelect.value;
+            const selectedOption = projectSelect.options[projectSelect.selectedIndex];
+            selectedProjectFullName = selectedOption?.dataset?.fullName || '';
+            
+            if (selectedProjectDir) {
+                log(`Project selected: ${selectedProjectDir}`, 'info');
+                selectedProjectInfo.innerHTML = `<strong>Selected:</strong> ${selectedOption.textContent}<br><strong>Directory:</strong> ${selectedProjectDir}<br><strong>Full Name:</strong> ${selectedProjectFullName}`;
+                
+                // Enable folder loading
+                loadFoldersBtn.disabled = false;
+                folderSelect.disabled = false;
+                folderSelect.innerHTML = '<option value="">Project Root</option>';
+                
+                // Auto-load folders
+                log('Auto-loading folders for selected project...');
+                loadFolders();
+            } else {
+                log('Project deselected');
+                selectedProjectInfo.innerHTML = '';
+                loadFoldersBtn.disabled = true;
+                folderSelect.disabled = true;
+                sendFileBtn.disabled = true;
+                folderSelect.innerHTML = '<option value="">Select project first...</option>';
+                setStatus('folderStatus', '');
+                setStatus('sendStatus', '');
+            }
+        }
+
+        function loadFolders() {
+            if (!selectedProjectDir) {
+                log('No project selected for folder loading', 'error');
+                return;
+            }
+
+            log(`Loading folders for project: "${selectedProjectDir}"`);
+            setStatus('folderStatus', '🔄 Loading folders for selected project...', 'warning');
+            
+            const folderSelect = document.getElementById('folderSelect');
+            const sendFileBtn = document.getElementById('sendFileBtn');
+            
+            // Build URL with project parameter (this is where the error typically occurs)
+            const url = `http://localhost:8080/folders?project=${encodeURIComponent(selectedProjectDir)}`;
+            log(`Request URL: ${url}`);
+            
+            fetch(url)
+                .then(response => {
+                    log(`Folders response: ${response.status} ${response.statusText}`);
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    log(`Folders response: ${JSON.stringify(data, null, 2)}`);
+                    folderSelect.innerHTML = '<option value="">Project Root</option>';
+                    
+                    if (data.folders && data.folders.length > 0) {
+                        let addedFolders = 0;
+                        data.folders.forEach(folder => {
+                            if (folder.path !== "") { // Skip root folder
+                                log(`Adding folder: ${folder.name} -> ${folder.path}`);
+                                const option = document.createElement('option');
+                                option.value = folder.path;
+                                option.textContent = folder.name;
+                                folderSelect.appendChild(option);
+                                addedFolders++;
+                            }
+                        });
+                        
+                        setStatus('folderStatus', `✅ Successfully loaded ${data.folders.length} folders (${addedFolders} sub-folders)`, 'success');
+                        log(`Successfully loaded ${data.folders.length} folders`, 'success');
+                        sendFileBtn.disabled = false;
+                        
+                        // Update test file content
+                        updateTestFileContent();
+                    } else {
+                        setStatus('folderStatus', '⚠️ No folders found in project (only root available)', 'warning');
+                        log('No folders found in project', 'warning');
+                        sendFileBtn.disabled = false; // Can still send to root
+                        updateTestFileContent();
+                    }
+                })
+                .catch(error => {
+                    log(`ERROR loading folders: ${error.message}`, 'error');
+                    setStatus('folderStatus', `❌ Error: ${error.message}`, 'error');
+                    sendFileBtn.disabled = true;
+                    
+                    if (error.message.includes('404')) {
+                        log('This might indicate the project was not found - check if it\'s nested in a solution folder', 'error');
+                    }
+                });
+        }
+
+        function updateTestFileContent() {
+            const testContent = document.getElementById('testContent');
+            const folderSelect = document.getElementById('folderSelect');
+            const selectedFolder = folderSelect.value || 'Project Root';
+            
+            testContent.value = `This is a test file to verify project selection fix.
+Created on: ${new Date().toLocaleString()}
+Selected project directory: ${selectedProjectDir}
+Selected folder: ${selectedFolder}
+Project full name: ${selectedProjectFullName}
+
+If you can see this file in your Visual Studio project, the fix is working correctly!`;
+        }
+
+        function sendTestFile() {
+            if (!selectedProjectDir) {
+                log('No project selected', 'error');
+                return;
+            }
+
+            const fileName = document.getElementById('testFileName').value;
+            const content = document.getElementById('testContent').value;
+            const folderSelect = document.getElementById('folderSelect');
+            const selectedFolder = folderSelect.value;
+
+            if (!fileName.trim()) {
+                log('Please enter a filename', 'error');
+                return;
+            }
+
+            log(`Sending test file: ${fileName}`);
+            setStatus('sendStatus', '📤 Sending test file...', 'warning');
+
+            const fileData = {
+                fileName: fileName,
+                content: content,
+                projectDirectory: selectedProjectDir
+            };
+
+            if (selectedFolder && selectedFolder.trim() !== '') {
+                fileData.folderPath = selectedFolder.trim();
+                log(`Including folder path: ${selectedFolder}`);
+            }
+
+            log(`File data: ${JSON.stringify(fileData, null, 2)}`);
+
+            fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(fileData)
+            })
+            .then(response => {
+                log(`Send response: ${response.status} ${response.statusText}`);
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .then(result => {
+                log(`Send result: ${result}`, 'success');
+                const location = selectedFolder ? `folder '${selectedFolder}'` : 'project root';
+                setStatus('sendStatus', `✅ File sent successfully to ${location}`, 'success');
+            })
+            .catch(error => {
+                log(`ERROR sending file: ${error.message}`, 'error');
+                setStatus('sendStatus', `❌ Error sending file: ${error.message}`, 'error');
+            });
+        }
+
+        // Auto-load projects when page loads
+        window.onload = function() {
+            log('Page loaded, starting automatic project load test...', 'info');
+            setTimeout(loadProjects, 500); // Small delay to ensure page is fully rendered
+        };
+    </script>
+</body>
+</html>
