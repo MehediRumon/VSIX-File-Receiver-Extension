@@ -1048,32 +1048,55 @@ namespace FileReceiverExtension
                         return project;
                     }
                     
-                    // If this is a solution folder, search within it
+                    // If this is a solution folder, search within it recursively
                     if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && project.ProjectItems != null)
                     {
-                        foreach (ProjectItem item in project.ProjectItems)
+                        var foundProject = SearchProjectItemsRecursive(project.ProjectItems, targetDirectory);
+                        if (foundProject != null)
                         {
-                            try
-                            {
-                                if (item.SubProject != null)
-                                {
-                                    var subProjDir = Path.GetDirectoryName(item.SubProject.FullName);
-                                    if (string.Equals(subProjDir, targetDirectory, StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        return item.SubProject;
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                LogAsync($"Error checking project item: {ex.Message}").ConfigureAwait(false);
-                            }
+                            return foundProject;
                         }
                     }
                 }
                 catch (Exception ex)
                 {
                     LogAsync($"Error in recursive project directory search: {ex.Message}").ConfigureAwait(false);
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Recursively searches through project items to find a project with the target directory
+        /// </summary>
+        private Project SearchProjectItemsRecursive(ProjectItems projectItems, string targetDirectory)
+        {
+            foreach (ProjectItem item in projectItems)
+            {
+                try
+                {
+                    if (item.SubProject != null)
+                    {
+                        var subProjDir = Path.GetDirectoryName(item.SubProject.FullName);
+                        if (string.Equals(subProjDir, targetDirectory, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return item.SubProject;
+                        }
+                        
+                        // If this sub-project is also a solution folder, search it recursively
+                        if (item.SubProject.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && item.SubProject.ProjectItems != null)
+                        {
+                            var foundProject = SearchProjectItemsRecursive(item.SubProject.ProjectItems, targetDirectory);
+                            if (foundProject != null)
+                            {
+                                return foundProject;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error checking project item: {ex.Message}").ConfigureAwait(false);
                 }
             }
             return null;
@@ -1091,29 +1114,54 @@ namespace FileReceiverExtension
                         return project;
                     }
                     
-                    // If this is a solution folder, search within it
+                    // If this is a solution folder, search within it recursively
                     if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && project.ProjectItems != null)
                     {
-                        foreach (ProjectItem item in project.ProjectItems)
+                        var foundProject = SearchProjectItemsByFullNameRecursive(project.ProjectItems, fullName);
+                        if (foundProject != null)
                         {
-                            try
-                            {
-                                if (item.SubProject != null && 
-                                    string.Equals(item.SubProject.FullName, fullName, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    return item.SubProject;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                LogAsync($"Error checking project item: {ex.Message}").ConfigureAwait(false);
-                            }
+                            return foundProject;
                         }
                     }
                 }
                 catch (Exception ex)
                 {
                     LogAsync($"Error in recursive project search: {ex.Message}").ConfigureAwait(false);
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Recursively searches through project items to find a project with the target full name
+        /// </summary>
+        private Project SearchProjectItemsByFullNameRecursive(ProjectItems projectItems, string fullName)
+        {
+            foreach (ProjectItem item in projectItems)
+            {
+                try
+                {
+                    if (item.SubProject != null)
+                    {
+                        if (string.Equals(item.SubProject.FullName, fullName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return item.SubProject;
+                        }
+                        
+                        // If this sub-project is also a solution folder, search it recursively
+                        if (item.SubProject.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && item.SubProject.ProjectItems != null)
+                        {
+                            var foundProject = SearchProjectItemsByFullNameRecursive(item.SubProject.ProjectItems, fullName);
+                            if (foundProject != null)
+                            {
+                                return foundProject;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error checking project item: {ex.Message}").ConfigureAwait(false);
                 }
             }
             return null;
