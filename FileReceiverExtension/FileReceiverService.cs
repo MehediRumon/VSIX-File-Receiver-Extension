@@ -1121,13 +1121,17 @@ namespace FileReceiverExtension
                     // If this is a solution folder, search within it recursively
                     if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && project.ProjectItems != null)
                     {
-                        LogAsync($"[FindProjectByDirectoryRecursive] Recursing into solution folder: {project.Name}").ConfigureAwait(false);
+                        LogAsync($"[FindProjectByDirectoryRecursive] Recursing into solution folder: {project.Name} (has {project.ProjectItems.Count} items)").ConfigureAwait(false);
                         var foundProject = SearchProjectItemsRecursive(project.ProjectItems, targetDirectory);
                         if (foundProject != null)
                         {
                             LogAsync($"[FindProjectByDirectoryRecursive] Found in solution folder: {foundProject.Name}").ConfigureAwait(false);
                             return foundProject;
                         }
+                    }
+                    else if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}")
+                    {
+                        LogAsync($"[FindProjectByDirectoryRecursive] Solution folder '{project.Name}' has no ProjectItems").ConfigureAwait(false);
                     }
                 }
                 catch (Exception ex)
@@ -1137,6 +1141,38 @@ namespace FileReceiverExtension
             }
             
             LogAsync($"[FindProjectByDirectoryRecursive] No match found for '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
+            
+            // Fallback: Try a linear search through all projects using the async method results
+            LogAsync($"[FindProjectByDirectoryRecursive] Attempting fallback search using GetAllProjectsAsync results").ConfigureAwait(false);
+            try
+            {
+                var allProjects = GetAllProjectsAsync().Result; // Synchronous call since we're already on UI thread
+                LogAsync($"[FindProjectByDirectoryRecursive] Fallback found {allProjects.Count} total projects").ConfigureAwait(false);
+                
+                foreach (var projectInfo in allProjects)
+                {
+                    var normalizedProjInfo = NormalizePath(projectInfo.Directory);
+                    LogAsync($"[FindProjectByDirectoryRecursive] Fallback checking: '{projectInfo.Name}' at '{projectInfo.Directory}' (normalized: '{normalizedProjInfo}')").ConfigureAwait(false);
+                    
+                    if (string.Equals(normalizedProjInfo, normalizedTarget, StringComparison.OrdinalIgnoreCase))
+                    {
+                        LogAsync($"[FindProjectByDirectoryRecursive] Fallback MATCH FOUND: {projectInfo.Name}").ConfigureAwait(false);
+                        // Find the actual Project object by FullName
+                        var actualProject = FindProjectByFullName(projectInfo.FullName);
+                        if (actualProject != null)
+                        {
+                            LogAsync($"[FindProjectByDirectoryRecursive] Fallback successfully retrieved Project object: {actualProject.Name}").ConfigureAwait(false);
+                            return actualProject;
+                        }
+                    }
+                }
+                LogAsync($"[FindProjectByDirectoryRecursive] Fallback search also failed").ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogAsync($"[FindProjectByDirectoryRecursive] Fallback search error: {ex.Message}").ConfigureAwait(false);
+            }
+            
             return null;
         }
 
@@ -1146,48 +1182,70 @@ namespace FileReceiverExtension
         private Project SearchProjectItemsRecursive(ProjectItems projectItems, string targetDirectory)
         {
             var normalizedTarget = NormalizePath(targetDirectory);
-            LogAsync($"[SearchProjectItemsRecursive] Searching {projectItems?.Count ?? 0} project items for: '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
             
-            foreach (ProjectItem item in projectItems)
+            try
             {
-                try
+                var itemCount = projectItems?.Count ?? 0;
+                LogAsync($"[SearchProjectItemsRecursive] Searching {itemCount} project items for: '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
+                
+                if (projectItems == null || itemCount == 0)
                 {
-                    if (item.SubProject != null)
+                    LogAsync($"[SearchProjectItemsRecursive] No project items to search").ConfigureAwait(false);
+                    return null;
+                }
+                
+                // Use index-based iteration to avoid COM collection issues
+                for (int i = 1; i <= itemCount; i++) // COM collections are 1-based
+                {
+                    try
                     {
-                        LogAsync($"[SearchProjectItemsRecursive] Checking sub-project: '{item.SubProject.Name}' (Kind: {item.SubProject.Kind})").ConfigureAwait(false);
-                        
-                        var subProjDir = Path.GetDirectoryName(item.SubProject.FullName);
-                        var normalizedSubProjDir = NormalizePath(subProjDir);
-                        
-                        LogAsync($"[SearchProjectItemsRecursive] Sub-project directory: '{subProjDir}' (normalized: '{normalizedSubProjDir}')").ConfigureAwait(false);
-                        LogAsync($"[SearchProjectItemsRecursive] Target directory: '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
-                        
-                        var isMatch = string.Equals(normalizedSubProjDir, normalizedTarget, StringComparison.OrdinalIgnoreCase);
-                        LogAsync($"[SearchProjectItemsRecursive] Normalized comparison result: {isMatch}").ConfigureAwait(false);
-                        
-                        if (isMatch)
+                        var item = projectItems.Item(i);
+                        if (item?.SubProject != null)
                         {
-                            LogAsync($"[SearchProjectItemsRecursive] MATCH FOUND: {item.SubProject.Name}").ConfigureAwait(false);
-                            return item.SubProject;
-                        }
-                        
-                        // If this sub-project is also a solution folder, search it recursively
-                        if (item.SubProject.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && item.SubProject.ProjectItems != null)
-                        {
-                            LogAsync($"[SearchProjectItemsRecursive] Recursing into nested solution folder: {item.SubProject.Name}").ConfigureAwait(false);
-                            var foundProject = SearchProjectItemsRecursive(item.SubProject.ProjectItems, targetDirectory);
-                            if (foundProject != null)
+                            LogAsync($"[SearchProjectItemsRecursive] Checking sub-project: '{item.SubProject.Name}' (Kind: {item.SubProject.Kind})").ConfigureAwait(false);
+                            
+                            var subProjDir = Path.GetDirectoryName(item.SubProject.FullName);
+                            var normalizedSubProjDir = NormalizePath(subProjDir);
+                            
+                            LogAsync($"[SearchProjectItemsRecursive] Sub-project directory: '{subProjDir}' (normalized: '{normalizedSubProjDir}')").ConfigureAwait(false);
+                            LogAsync($"[SearchProjectItemsRecursive] Target directory: '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
+                            
+                            var isMatch = string.Equals(normalizedSubProjDir, normalizedTarget, StringComparison.OrdinalIgnoreCase);
+                            LogAsync($"[SearchProjectItemsRecursive] Normalized comparison result: {isMatch}").ConfigureAwait(false);
+                            
+                            if (isMatch)
                             {
-                                LogAsync($"[SearchProjectItemsRecursive] Found in nested folder: {foundProject.Name}").ConfigureAwait(false);
-                                return foundProject;
+                                LogAsync($"[SearchProjectItemsRecursive] MATCH FOUND: {item.SubProject.Name}").ConfigureAwait(false);
+                                return item.SubProject;
+                            }
+                            
+                            // If this sub-project is also a solution folder, search it recursively
+                            if (item.SubProject.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && item.SubProject.ProjectItems != null)
+                            {
+                                var nestedItemCount = item.SubProject.ProjectItems.Count;
+                                LogAsync($"[SearchProjectItemsRecursive] Recursing into nested solution folder: {item.SubProject.Name} (has {nestedItemCount} nested items)").ConfigureAwait(false);
+                                var foundProject = SearchProjectItemsRecursive(item.SubProject.ProjectItems, targetDirectory);
+                                if (foundProject != null)
+                                {
+                                    LogAsync($"[SearchProjectItemsRecursive] Found in nested folder: {foundProject.Name}").ConfigureAwait(false);
+                                    return foundProject;
+                                }
                             }
                         }
+                        else
+                        {
+                            LogAsync($"[SearchProjectItemsRecursive] Item {i} has no SubProject").ConfigureAwait(false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogAsync($"[SearchProjectItemsRecursive] Error checking project item {i}: {ex.Message}").ConfigureAwait(false);
                     }
                 }
-                catch (Exception ex)
-                {
-                    LogAsync($"[SearchProjectItemsRecursive] Error checking project item: {ex.Message}").ConfigureAwait(false);
-                }
+            }
+            catch (Exception ex)
+            {
+                LogAsync($"[SearchProjectItemsRecursive] Error iterating project items: {ex.Message}").ConfigureAwait(false);
             }
             
             LogAsync($"[SearchProjectItemsRecursive] No match found in project items for '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
