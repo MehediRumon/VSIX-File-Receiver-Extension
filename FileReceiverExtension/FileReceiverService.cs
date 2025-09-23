@@ -234,30 +234,24 @@ namespace FileReceiverExtension
             {
                 await LogAsync($"Parsing JSON data: {json.Substring(0, Math.Min(100, json.Length))}...");
                 
-                // Simple JSON parsing - in production, use a proper JSON library
-                var lines = json.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                // Simple JSON parsing - handles both single-line and multi-line JSON
                 string fileName = null;
                 string content = null;
 
-                foreach (var line in lines)
+                // Extract fileName using regex pattern that handles both formats
+                var fileNameMatch = Regex.Match(json, @"""fileName""\s*:\s*""([^""]*?)""");
+                if (fileNameMatch.Success)
                 {
-                    var trimmed = line.Trim();
-                    if (trimmed.StartsWith("\"fileName\""))
-                    {
-                        var colonIndex = trimmed.IndexOf(':');
-                        if (colonIndex > 0)
-                        {
-                            fileName = trimmed.Substring(colonIndex + 1).Trim(' ', '"', ',');
-                        }
-                    }
-                    else if (trimmed.StartsWith("\"content\""))
-                    {
-                        var colonIndex = trimmed.IndexOf(':');
-                        if (colonIndex > 0)
-                        {
-                            content = trimmed.Substring(colonIndex + 1).Trim(' ', '"', ',');
-                        }
-                    }
+                    fileName = fileNameMatch.Groups[1].Value;
+                }
+
+                // Extract content using regex pattern that handles escaped quotes and multi-line content
+                var contentMatch = Regex.Match(json, @"""content""\s*:\s*""((?:[^""\\]|\\.)*)""");
+                if (contentMatch.Success)
+                {
+                    content = contentMatch.Groups[1].Value;
+                    // Unescape JSON string content
+                    content = content.Replace("\\\"", "\"").Replace("\\\\", "\\").Replace("\\n", "\n").Replace("\\r", "\r").Replace("\\t", "\t");
                 }
 
                 if (!string.IsNullOrEmpty(fileName) && content != null)
