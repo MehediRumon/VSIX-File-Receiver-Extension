@@ -197,6 +197,11 @@ The repository includes test files to validate functionality:
    
 2. **test-json-fix.html**: Tests JSON parsing and basic file creation
 
+3. **test-improved-error-handling.html**: Tests the enhanced "No active project found" error handling
+   - Validates improved error messages and diagnostics
+   - Tests both folder retrieval and file upload scenarios
+   - Demonstrates better user guidance when issues occur
+
 ### Customizing the Chrome Extension
 
 The sample Chrome extension is provided as a starting point. You can:
@@ -233,3 +238,15 @@ The sample Chrome extension is provided as a starting point. You can:
 - Check that the project directory is writable
 - Verify the file name is valid for the file system
 - Check the Output Window for detailed error messages
+
+**Common Causes of "No Active Project Found" Error:**
+- No solution is open in Visual Studio
+- Solution is open but contains no projects
+- Extension loaded before solution was fully initialized
+- Permission issues accessing Visual Studio services
+
+**Solutions:**
+1. Open a solution with at least one project in Visual Studio
+2. Check the "File Receiver Extension" output pane for detailed diagnostic information
+3. Restart Visual Studio if the extension seems unresponsive
+4. Ensure Visual Studio has proper permissions to access project files

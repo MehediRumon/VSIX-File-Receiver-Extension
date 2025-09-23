@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Improved Error Handling - File Receiver Extension</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-button {
+            background-color: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .test-button:hover {
+            background-color: #005a9e;
+        }
+        .result {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .improvement-list {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007acc;
+            padding: 15px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Improved "No Active Project Found" Error Handling</h1>
+        <p>This page tests the enhanced project detection and error handling in the File Receiver Extension.</p>
+        
+        <div class="improvement-list">
+            <h3>Key Improvements Made:</h3>
+            <ul>
+                <li><strong>Better Error Messages:</strong> More descriptive error responses that guide users</li>
+                <li><strong>Enhanced Logging:</strong> Detailed diagnostic information in Visual Studio output</li>
+                <li><strong>Thread Safety:</strong> Proper UI thread handling for DTE operations</li>
+                <li><strong>Solution Validation:</strong> Early detection of solution/project state issues</li>
+                <li><strong>Robust Fallbacks:</strong> Individual error handling for each project detection method</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Test Folder Structure Request</h2>
+        <p>This will test the improved error handling when requesting project folders.</p>
+        <button class="test-button" onclick="testGetFolders()">Test Get Folders</button>
+        <div id="folderResult" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="container">
+        <h2>Test File Upload</h2>
+        <p>This will test the improved error handling when uploading a file.</p>
+        <button class="test-button" onclick="testFileUpload()">Test File Upload</button>
+        <div id="uploadResult" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="container">
+        <h2>Expected Behavior</h2>
+        <div class="info">
+            <strong>Before Improvements:</strong><br>
+            - Generic "No active project found" error<br>
+            - Limited diagnostic information<br>
+            - No guidance for users on how to resolve the issue<br><br>
+            
+            <strong>After Improvements:</strong><br>
+            - Detailed error message: "No active project found. Please ensure Visual Studio has a solution loaded with at least one project."<br>
+            - Comprehensive logging in Visual Studio Output Window<br>
+            - Better thread safety and error isolation<br>
+            - Early validation and user guidance
+        </div>
+    </div>
+
+    <script>
+        async function testGetFolders() {
+            const resultDiv = document.getElementById('folderResult');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Testing folder request...';
+            resultDiv.className = 'result info';
+
+            try {
+                const response = await fetch('http://localhost:8080/folders', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `Success (${response.status}):\n${responseText}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `Error (${response.status}):\n${responseText}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Connection Error:\n${error.message}\n\nMake sure:\n1. Visual Studio is running\n2. The File Receiver Extension is loaded\n3. A solution with projects is open`;
+            }
+        }
+
+        async function testFileUpload() {
+            const resultDiv = document.getElementById('uploadResult');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Testing file upload...';
+            resultDiv.className = 'result info';
+
+            const testData = {
+                fileName: 'test-improved-error-handling.txt',
+                content: 'This is a test file to validate the improved error handling.\n\nTimestamp: ' + new Date().toISOString(),
+                folderPath: ''
+            };
+
+            try {
+                const response = await fetch('http://localhost:8080/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+
+                const responseText = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `Success (${response.status}):\n${responseText}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `Error (${response.status}):\n${responseText}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Connection Error:\n${error.message}\n\nMake sure:\n1. Visual Studio is running\n2. The File Receiver Extension is loaded\n3. A solution with projects is open`;
+            }
+        }
+
+        // Show instructions on page load
+        window.onload = function() {
+            console.log('File Receiver Extension Test Page Loaded');
+            console.log('To test the improvements:');
+            console.log('1. Make sure Visual Studio is running');
+            console.log('2. Open a solution with at least one project');
+            console.log('3. Ensure the File Receiver Extension is loaded');
+            console.log('4. Click the test buttons above');
+        };
+    </script>
+</body>
+</html>
