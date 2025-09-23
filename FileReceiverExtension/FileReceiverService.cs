@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
@@ -185,27 +186,36 @@ namespace FileReceiverExtension
             try
             {
                 // Simple JSON parsing - in production, use a proper JSON library
-                var lines = json.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                 string fileName = null;
                 string content = null;
 
-                foreach (var line in lines)
+                // Handle both single-line and multi-line JSON by using regex or string manipulation
+                // Look for "fileName" field
+                var fileNameMatch = Regex.Match(json, @"""fileName""\s*:\s*""([^""]+)""");
+                if (fileNameMatch.Success)
                 {
-                    var trimmed = line.Trim();
-                    if (trimmed.StartsWith("\"fileName\""))
+                    fileName = fileNameMatch.Groups[1].Value;
+                }
+
+                // Look for "content" field - handle escaped quotes properly
+                // Find the opening quote after "content":
+                var contentStart = json.IndexOf("\"content\"");
+                if (contentStart >= 0)
+                {
+                    var colonIndex = json.IndexOf(':', contentStart);
+                    if (colonIndex >= 0)
                     {
-                        var colonIndex = trimmed.IndexOf(':');
-                        if (colonIndex > 0)
+                        var quoteIndex = json.IndexOf('"', colonIndex);
+                        if (quoteIndex >= 0)
                         {
-                            fileName = trimmed.Substring(colonIndex + 1).Trim(' ', '"', ',');
-                        }
-                    }
-                    else if (trimmed.StartsWith("\"content\""))
-                    {
-                        var colonIndex = trimmed.IndexOf(':');
-                        if (colonIndex > 0)
-                        {
-                            content = trimmed.Substring(colonIndex + 1).Trim(' ', '"', ',');
+                            var contentStartIndex = quoteIndex + 1;
+                            var contentEndIndex = FindEndOfJsonString(json, contentStartIndex);
+                            if (contentEndIndex > contentStartIndex)
+                            {
+                                content = json.Substring(contentStartIndex, contentEndIndex - contentStartIndex);
+                                // Unescape JSON string content
+                                content = content.Replace("\\\"", "\"").Replace("\\\\", "\\").Replace("\\n", "\n").Replace("\\r", "\r").Replace("\\t", "\t");
+                            }
                         }
                     }
                 }
@@ -227,6 +237,29 @@ namespace FileReceiverExtension
             }
 
             return null;
+        }
+
+        private int FindEndOfJsonString(string json, int startIndex)
+        {
+            for (int i = startIndex; i < json.Length; i++)
+            {
+                if (json[i] == '"')
+                {
+                    // Check if this quote is escaped
+                    int backslashCount = 0;
+                    for (int j = i - 1; j >= startIndex && json[j] == '\\'; j--)
+                    {
+                        backslashCount++;
+                    }
+                    
+                    // If even number of backslashes (including 0), the quote is not escaped
+                    if (backslashCount % 2 == 0)
+                    {
+                        return i;
+                    }
+                }
+            }
+            return -1;
         }
 
         private bool IsBase64String(string s)
