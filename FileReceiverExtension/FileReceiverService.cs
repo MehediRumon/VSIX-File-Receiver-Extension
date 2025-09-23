@@ -30,6 +30,22 @@ namespace FileReceiverExtension
             _cancellationTokenSource = new CancellationTokenSource();
         }
 
+        private bool IsPortInUse(int port)
+        {
+            try
+            {
+                var listener = new HttpListener();
+                listener.Prefixes.Add($"http://localhost:{port}/");
+                listener.Start();
+                listener.Stop();
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
         public async Task StartAsync()
         {
             try
@@ -37,12 +53,30 @@ namespace FileReceiverExtension
                 // Create output pane for logging
                 await CreateOutputPaneAsync();
 
+                // Check if port is already in use
+                if (IsPortInUse(8080))
+                {
+                    await LogAsync("ERROR: Port 8080 is already in use. Please close other applications using this port.");
+                    return;
+                }
+
                 // Start HTTP listener on localhost port 8080
                 _httpListener = new HttpListener();
                 _httpListener.Prefixes.Add("http://localhost:8080/");
-                _httpListener.Start();
-
-                await LogAsync("File Receiver Service started on http://localhost:8080/");
+                
+                try
+                {
+                    _httpListener.Start();
+                    await LogAsync("File Receiver Service started successfully on http://localhost:8080/");
+                    await LogAsync("Service is ready to receive files from Chrome extension");
+                }
+                catch (HttpListenerException ex)
+                {
+                    await LogAsync($"Failed to start HTTP listener: {ex.Message}");
+                    await LogAsync("This might be due to insufficient permissions or port conflicts.");
+                    await LogAsync("Try running Visual Studio as Administrator or check if port 8080 is available.");
+                    return;
+                }
 
                 // Start listening for requests
                 _ = Task.Run(async () => await ListenForRequestsAsync(_cancellationTokenSource.Token));
@@ -50,6 +84,7 @@ namespace FileReceiverExtension
             catch (Exception ex)
             {
                 await LogAsync($"Error starting File Receiver Service: {ex.Message}");
+                await LogAsync($"Stack trace: {ex.StackTrace}");
             }
         }
 
@@ -96,6 +131,8 @@ namespace FileReceiverExtension
                 var request = context.Request;
                 var response = context.Response;
 
+                await LogAsync($"Received {request.HttpMethod} request from {request.RemoteEndPoint}");
+
                 // Enable CORS for Chrome extension
                 response.Headers.Add("Access-Control-Allow-Origin", "*");
                 response.Headers.Add("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -104,6 +141,7 @@ namespace FileReceiverExtension
                 if (request.HttpMethod == "OPTIONS")
                 {
                     // Handle preflight request
+                    await LogAsync("Handling CORS preflight request");
                     response.StatusCode = 200;
                     response.Close();
                     return;
@@ -111,10 +149,12 @@ namespace FileReceiverExtension
 
                 if (request.HttpMethod == "POST")
                 {
+                    await LogAsync("Processing POST request for file upload");
                     await HandleFileUploadAsync(request, response);
                 }
                 else
                 {
+                    await LogAsync($"Method {request.HttpMethod} not allowed");
                     response.StatusCode = 405; // Method Not Allowed
                     response.Close();
                 }
@@ -122,6 +162,7 @@ namespace FileReceiverExtension
             catch (Exception ex)
             {
                 await LogAsync($"Error processing request: {ex.Message}");
+                await LogAsync($"Stack trace: {ex.StackTrace}");
                 try
                 {
                     context.Response.StatusCode = 500;
@@ -142,17 +183,21 @@ namespace FileReceiverExtension
                     content = await reader.ReadToEndAsync();
                 }
 
+                await LogAsync($"Received file data, content length: {content?.Length ?? 0}");
+
                 if (string.IsNullOrEmpty(content))
                 {
+                    await LogAsync("Empty request body received");
                     response.StatusCode = 400;
                     response.Close();
                     return;
                 }
 
                 // Parse JSON content (simple parsing for filename and content)
-                var fileData = ParseFileData(content);
+                var fileData = await ParseFileDataAsync(content);
                 if (fileData == null)
                 {
+                    await LogAsync("Failed to parse file data from request");
                     response.StatusCode = 400;
                     await WriteResponseAsync(response, "Invalid file data format");
                     return;
@@ -165,75 +210,78 @@ namespace FileReceiverExtension
                 {
                     response.StatusCode = 200;
                     await WriteResponseAsync(response, "File added successfully");
-                    await LogAsync($"File '{fileData.FileName}' added to active project");
+                    await LogAsync($"File '{fileData.FileName}' added to active project successfully");
                 }
                 else
                 {
                     response.StatusCode = 500;
                     await WriteResponseAsync(response, "Failed to add file to project");
+                    await LogAsync($"Failed to add file '{fileData.FileName}' to project");
                 }
             }
             catch (Exception ex)
             {
                 await LogAsync($"Error handling file upload: {ex.Message}");
+                await LogAsync($"Stack trace: {ex.StackTrace}");
                 response.StatusCode = 500;
                 await WriteResponseAsync(response, "Internal server error");
             }
         }
 
-        private FileData ParseFileData(string json)
+        private async Task<FileData> ParseFileDataAsync(string json)
         {
             try
             {
+                await LogAsync($"Parsing JSON data: {json.Substring(0, Math.Min(100, json.Length))}...");
+                
                 // Simple JSON parsing - in production, use a proper JSON library
+                var lines = json.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                 string fileName = null;
                 string content = null;
 
-                // Handle both single-line and multi-line JSON by using regex or string manipulation
-                // Look for "fileName" field
-                var fileNameMatch = Regex.Match(json, @"""fileName""\s*:\s*""([^""]+)""");
-                if (fileNameMatch.Success)
+                foreach (var line in lines)
                 {
-                    fileName = fileNameMatch.Groups[1].Value;
-                }
-
-                // Look for "content" field - handle escaped quotes properly
-                // Find the opening quote after "content":
-                var contentStart = json.IndexOf("\"content\"");
-                if (contentStart >= 0)
-                {
-                    var colonIndex = json.IndexOf(':', contentStart);
-                    if (colonIndex >= 0)
+                    var trimmed = line.Trim();
+                    if (trimmed.StartsWith("\"fileName\""))
                     {
-                        var quoteIndex = json.IndexOf('"', colonIndex);
-                        if (quoteIndex >= 0)
+                        var colonIndex = trimmed.IndexOf(':');
+                        if (colonIndex > 0)
                         {
-                            var contentStartIndex = quoteIndex + 1;
-                            var contentEndIndex = FindEndOfJsonString(json, contentStartIndex);
-                            if (contentEndIndex > contentStartIndex)
-                            {
-                                content = json.Substring(contentStartIndex, contentEndIndex - contentStartIndex);
-                                // Unescape JSON string content
-                                content = content.Replace("\\\"", "\"").Replace("\\\\", "\\").Replace("\\n", "\n").Replace("\\r", "\r").Replace("\\t", "\t");
-                            }
+                            fileName = trimmed.Substring(colonIndex + 1).Trim(' ', '"', ',');
+                        }
+                    }
+                    else if (trimmed.StartsWith("\"content\""))
+                    {
+                        var colonIndex = trimmed.IndexOf(':');
+                        if (colonIndex > 0)
+                        {
+                            content = trimmed.Substring(colonIndex + 1).Trim(' ', '"', ',');
                         }
                     }
                 }
 
                 if (!string.IsNullOrEmpty(fileName) && content != null)
                 {
+                    await LogAsync($"Successfully parsed file: {fileName}");
+                    
                     // Decode content if it's base64 encoded
                     if (IsBase64String(content))
                     {
+                        await LogAsync("Content appears to be base64 encoded, decoding...");
                         content = Encoding.UTF8.GetString(Convert.FromBase64String(content));
                     }
                     
                     return new FileData { FileName = fileName, Content = content };
                 }
+                else
+                {
+                    await LogAsync($"Failed to parse JSON - fileName: {fileName ?? "null"}, content: {(content != null ? "present" : "null")}");
+                }
             }
             catch (Exception ex)
             {
-                LogAsync($"Error parsing file data: {ex.Message}").ConfigureAwait(false);
+                await LogAsync($"Error parsing file data: {ex.Message}");
+                await LogAsync($"Raw JSON: {json}");
             }
 
             return null;
