@@ -668,6 +668,37 @@
             <div class="modal-body">
                 <p style="margin-bottom: 1rem; color: #666;">Choose which files to download based on your action name:</p>
                 
+                <!-- Project and Folder Selection Section -->
+                <div class="download-section" style="margin-bottom: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 6px; border-left: 4px solid #7c3aed;">
+                    <h4 style="margin-bottom: 0.75rem; color: #333;">📁 Send to Visual Studio Project:</h4>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label for="projectSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Project:</label>
+                            <select id="projectSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; background: white;">
+                                <option value="">Select a project...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="folderSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Folder:</label>
+                            <select id="folderSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; background: white;" disabled>
+                                <option value="">Select project first...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="loadProjectsBtn" style="background: #6366f1; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                            🔄 Load Projects
+                        </button>
+                        <button id="loadFoldersBtn" style="background: #059669; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem;" disabled>
+                            📁 Load Folders
+                        </button>
+                    </div>
+                    
+                    <div id="projectStatus" style="margin-top: 0.5rem; font-size: 0.9rem;"></div>
+                </div>
+                
                 <div class="download-section">
                     <h4 style="margin-bottom: 0.5rem; color: #333;">Individual Files:</h4>
                     <div class="download-buttons" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
@@ -685,13 +716,16 @@
                         </button>
                     </div>
                     
-                    <h4 style="margin-bottom: 0.5rem; color: #333;">Bulk Download:</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
-                        <button id="downloadAllIndividualBtn" class="download-btn" style="background: #06b6d4; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem;">
+                    <h4 style="margin-bottom: 0.5rem; color: #333;">Bulk Download & Send:</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
+                        <button id="downloadAllIndividualBtn" class="download-btn" style="background: #06b6d4; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
                             📄 Download All Individual
                         </button>
-                        <button id="downloadAllZipBtn" class="download-btn" style="background: #ef4444; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem;">
+                        <button id="downloadAllZipBtn" class="download-btn" style="background: #ef4444; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
                             📦 Download All as ZIP
+                        </button>
+                        <button id="sendToVisualStudioBtn" class="download-btn" style="background: #7c3aed; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
+                            🚀 Send to Visual Studio
                         </button>
                     </div>
                 </div>
