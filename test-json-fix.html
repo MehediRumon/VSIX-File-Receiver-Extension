@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test JSON Parsing Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        button { padding: 10px 20px; margin: 5px; }
+        .json-display { background: #f8f9fa; padding: 10px; font-family: monospace; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Test JSON Parsing Fix - File Receiver Extension</h1>
+    <p>This page tests the fixed JSON parsing in the Visual Studio File Receiver Extension.</p>
+    
+    <div id="status"></div>
+    
+    <h2>Test Cases</h2>
+    
+    <div class="test-case">
+        <h3>Test 1: Standard JSON from JSON.stringify()</h3>
+        <button onclick="testStandardJSON()">Send Standard JSON</button>
+        <div class="json-display" id="json1"></div>
+        <div id="result1"></div>
+    </div>
+    
+    <div class="test-case">
+        <h3>Test 2: JSON with newlines</h3>
+        <button onclick="testMultilineJSON()">Send JSON with newlines</button>
+        <div class="json-display" id="json2"></div>
+        <div id="result2"></div>
+    </div>
+    
+    <div class="test-case">
+        <h3>Test 3: JSON with special characters</h3>
+        <button onclick="testSpecialCharsJSON()">Send JSON with special chars</button>
+        <div class="json-display" id="json3"></div>
+        <div id="result3"></div>
+    </div>
+
+    <script>
+        function testStandardJSON() {
+            const fileData = {
+                fileName: "test-standard.txt",
+                content: "Hello World! This is a standard test."
+            };
+            sendTest(1, fileData);
+        }
+
+        function testMultilineJSON() {
+            const fileData = {
+                fileName: "test-multiline.js",
+                content: `function test() {
+    console.log("Hello");
+    return "value";
+}`
+            };
+            sendTest(2, fileData);
+        }
+
+        function testSpecialCharsJSON() {
+            const fileData = {
+                fileName: "test-special.txt",
+                content: `He said "Hello" and used a backslash: \\ and a tab:\t`
+            };
+            sendTest(3, fileData);
+        }
+
+        function sendTest(testNum, fileData) {
+            const jsonString = JSON.stringify(fileData);
+            document.getElementById(`json${testNum}`).textContent = jsonString;
+            
+            console.log(`Test ${testNum}: Sending JSON: ${jsonString}`);
+
+            fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: jsonString
+            })
+            .then(response => {
+                console.log(`Test ${testNum}: Response status: ${response.status}`);
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .then(data => {
+                console.log(`Test ${testNum}: Success: ${data}`);
+                showResult(testNum, 'success', `✓ SUCCESS: ${data}`);
+            })
+            .catch(error => {
+                console.error(`Test ${testNum}: Error:`, error);
+                showResult(testNum, 'error', `✗ ERROR: ${error.message}`);
+            });
+        }
+
+        function showResult(testNum, type, message) {
+            const resultDiv = document.getElementById(`result${testNum}`);
+            resultDiv.className = type;
+            resultDiv.textContent = message;
+        }
+
+        // Check if server is running
+        fetch('http://localhost:8080/', { method: 'OPTIONS' })
+            .then(() => {
+                document.getElementById('status').innerHTML = '<p style="color: green;">✓ Visual Studio File Receiver Extension is running</p>';
+            })
+            .catch(() => {
+                document.getElementById('status').innerHTML = '<p style="color: red;">✗ Visual Studio File Receiver Extension is not running. Please start Visual Studio with the extension installed.</p>';
+            });
+    </script>
+</body>
+</html>
