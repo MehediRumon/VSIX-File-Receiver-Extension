@@ -307,7 +307,7 @@ namespace FileReceiverExtension
                         continue;
                     }
 
-                    var relativePath = Path.GetRelativePath(projectDir, dir);
+                    var relativePath = GetRelativePath(projectDir, dir);
                     folders.Add(new FolderInfo 
                     { 
                         Name = dirName, 
@@ -322,6 +322,35 @@ namespace FileReceiverExtension
             }
 
             return folders;
+        }
+
+        /// <summary>
+        /// Gets the relative path from one directory to another (compatible with .NET Framework 4.7.2)
+        /// </summary>
+        private string GetRelativePath(string fromPath, string toPath)
+        {
+            if (string.IsNullOrEmpty(fromPath)) return toPath;
+            if (string.IsNullOrEmpty(toPath)) return string.Empty;
+
+            // Normalize paths
+            fromPath = Path.GetFullPath(fromPath);
+            toPath = Path.GetFullPath(toPath);
+
+            // Check if toPath is actually under fromPath
+            if (!toPath.StartsWith(fromPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return toPath; // Return full path if not under fromPath
+            }
+
+            // Remove the base path and leading separator
+            var relativePath = toPath.Substring(fromPath.Length);
+            if (relativePath.StartsWith(Path.DirectorySeparatorChar.ToString()) || 
+                relativePath.StartsWith(Path.AltDirectorySeparatorChar.ToString()))
+            {
+                relativePath = relativePath.Substring(1);
+            }
+
+            return relativePath;
         }
 
         private string CreateFoldersJson(List<FolderInfo> folders)

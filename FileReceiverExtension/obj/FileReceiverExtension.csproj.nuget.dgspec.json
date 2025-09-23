@@ -1,32 +1,44 @@
 {
   "format": 1,
   "restore": {
-    "/home/runner/work/VSIX-File-Receiver-Extension/VSIX-File-Receiver-Extension/FileReceiverExtension/FileReceiverExtension.csproj": {}
+    "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\FileReceiverExtension\\FileReceiverExtension.csproj": {}
   },
   "projects": {
-    "/home/runner/work/VSIX-File-Receiver-Extension/VSIX-File-Receiver-Extension/FileReceiverExtension/FileReceiverExtension.csproj": {
+    "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\FileReceiverExtension\\FileReceiverExtension.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/runner/work/VSIX-File-Receiver-Extension/VSIX-File-Receiver-Extension/FileReceiverExtension/FileReceiverExtension.csproj",
+        "projectUniqueName": "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\FileReceiverExtension\\FileReceiverExtension.csproj",
         "projectName": "FileReceiverExtension",
-        "projectPath": "/home/runner/work/VSIX-File-Receiver-Extension/VSIX-File-Receiver-Extension/FileReceiverExtension/FileReceiverExtension.csproj",
-        "packagesPath": "/home/runner/.nuget/packages/",
-        "outputPath": "/home/runner/work/VSIX-File-Receiver-Extension/VSIX-File-Receiver-Extension/FileReceiverExtension/obj/",
+        "projectPath": "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\FileReceiverExtension\\FileReceiverExtension.csproj",
+        "packagesPath": "C:\\Users\\PC01\\.nuget\\packages\\",
+        "outputPath": "E:\\Rnd\\OA OSL Automation Extensition\\FileReceiverExtension\\VSIX-File-Receiver-Extension\\FileReceiverExtension\\obj\\",
         "projectStyle": "PackageReference",
         "skipContentFileWrite": true,
+        "UsingMicrosoftNETSdk": false,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "/home/runner/.nuget/NuGet/NuGet.Config"
+          "C:\\Users\\PC01\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net472"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net472": {
             "projectReferences": {}
           }
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
         }
       },
       "frameworks": {
@@ -48,6 +60,20 @@
               ]
             }
           }
+        }
+      },
+      "runtimes": {
+        "win": {
+          "#import": []
+        },
+        "win-arm64": {
+          "#import": []
+        },
+        "win-x64": {
+          "#import": []
+        },
+        "win-x86": {
+          "#import": []
         }
       }
     }
