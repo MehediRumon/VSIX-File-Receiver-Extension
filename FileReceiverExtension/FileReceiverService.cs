@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using EnvDTE;
@@ -268,22 +269,53 @@ namespace FileReceiverExtension
 
                 if (!string.IsNullOrEmpty(projectDirectory))
                 {
-                    await LogAsync($"Using specified project directory: {projectDirectory}");
+                    await LogAsync($"[HandleGetFoldersAsync] Raw URL query: {request.Url.Query}");
+                    await LogAsync($"[HandleGetFoldersAsync] Initial project directory parameter: '{projectDirectory}'");
+                    
+                    // Ensure proper URL decoding (HttpListener.QueryString should already decode, but let's be sure)
+                    try
+                    {
+                        var doubleDecodedDir = HttpUtility.UrlDecode(projectDirectory);
+                        if (!string.Equals(projectDirectory, doubleDecodedDir, StringComparison.Ordinal))
+                        {
+                            await LogAsync($"[HandleGetFoldersAsync] Double-decoding detected: '{projectDirectory}' vs '{doubleDecodedDir}'");
+                            projectDirectory = doubleDecodedDir;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        await LogAsync($"[HandleGetFoldersAsync] URL decode error: {ex.Message}");
+                    }
+                    
+                    await LogAsync($"[HandleGetFoldersAsync] Final project directory parameter: '{projectDirectory}'");
+                    
+                    // Additional logging to check for encoding issues
+                    await LogAsync($"[HandleGetFoldersAsync] Parameter length: {projectDirectory.Length}");
+                    await LogAsync($"[HandleGetFoldersAsync] Contains backslashes: {projectDirectory.Contains("\\")}");
+                    await LogAsync($"[HandleGetFoldersAsync] Contains forward slashes: {projectDirectory.Contains("/")}");
                     
                     // Find the project by directory using recursive search to handle solution folders
                     if (_dte?.Solution?.Projects != null)
                     {
+                        await LogAsync($"[HandleGetFoldersAsync] Starting recursive search through {_dte.Solution.Projects.Count} top-level solution items");
                         project = FindProjectByDirectoryRecursive(_dte.Solution.Projects, projectDirectory);
                         if (project != null)
                         {
                             projectDir = Path.GetDirectoryName(project.FullName);
-                            await LogAsync($"Found matching project: {project.Name}");
+                            await LogAsync($"[HandleGetFoldersAsync] SUCCESS: Found matching project: {project.Name}");
+                            await LogAsync($"[HandleGetFoldersAsync] Project full path: {project.FullName}");
+                            await LogAsync($"[HandleGetFoldersAsync] Project directory: {projectDir}");
+                        }
+                        else
+                        {
+                            await LogAsync($"[HandleGetFoldersAsync] FAILURE: Recursive search did not find project");
                         }
                     }
 
                     if (project == null)
                     {
-                        await LogAsync($"Could not find project with directory: {projectDirectory}");
+                        await LogAsync($"[HandleGetFoldersAsync] ERROR: Could not find project with directory: '{projectDirectory}'");
+                        await LogAsync($"[HandleGetFoldersAsync] This will result in 404 response");
                         response.StatusCode = 404;
                         await WriteResponseAsync(response, "{\"error\":\"Project not found with specified directory\"}");
                         return;
@@ -1035,34 +1067,76 @@ namespace FileReceiverExtension
             return null;
         }
 
+        /// <summary>
+        /// Normalizes a directory path for comparison by handling common path variations
+        /// </summary>
+        private string NormalizePath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return path;
+                
+            try
+            {
+                // Convert to full path and normalize separators
+                var normalized = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                LogAsync($"[NormalizePath] '{path}' -> '{normalized}'").ConfigureAwait(false);
+                return normalized;
+            }
+            catch (Exception ex)
+            {
+                LogAsync($"[NormalizePath] Error normalizing '{path}': {ex.Message}").ConfigureAwait(false);
+                // Fallback to basic normalization
+                return path.Replace('/', '\\').TrimEnd('\\', '/');
+            }
+        }
+
         private Project FindProjectByDirectoryRecursive(Projects projectsCollection, string targetDirectory)
         {
+            var normalizedTarget = NormalizePath(targetDirectory);
+            LogAsync($"[FindProjectByDirectoryRecursive] Looking for: '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
+            LogAsync($"[FindProjectByDirectoryRecursive] Scanning {projectsCollection?.Count ?? 0} top-level items").ConfigureAwait(false);
+            
             foreach (Project project in projectsCollection)
             {
                 try
                 {
+                    LogAsync($"[FindProjectByDirectoryRecursive] Examining: '{project.Name}' (Kind: {project.Kind})").ConfigureAwait(false);
+                    
                     // Check if this is the project we're looking for
                     var projDir = Path.GetDirectoryName(project.FullName);
-                    if (string.Equals(projDir, targetDirectory, StringComparison.OrdinalIgnoreCase))
+                    var normalizedProjDir = NormalizePath(projDir);
+                    
+                    LogAsync($"[FindProjectByDirectoryRecursive] Project directory: '{projDir}' (normalized: '{normalizedProjDir}')").ConfigureAwait(false);
+                    LogAsync($"[FindProjectByDirectoryRecursive] Target directory: '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
+                    
+                    var isMatch = string.Equals(normalizedProjDir, normalizedTarget, StringComparison.OrdinalIgnoreCase);
+                    LogAsync($"[FindProjectByDirectoryRecursive] Normalized comparison result: {isMatch}").ConfigureAwait(false);
+                    
+                    if (isMatch)
                     {
+                        LogAsync($"[FindProjectByDirectoryRecursive] MATCH FOUND: {project.Name}").ConfigureAwait(false);
                         return project;
                     }
                     
                     // If this is a solution folder, search within it recursively
                     if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && project.ProjectItems != null)
                     {
+                        LogAsync($"[FindProjectByDirectoryRecursive] Recursing into solution folder: {project.Name}").ConfigureAwait(false);
                         var foundProject = SearchProjectItemsRecursive(project.ProjectItems, targetDirectory);
                         if (foundProject != null)
                         {
+                            LogAsync($"[FindProjectByDirectoryRecursive] Found in solution folder: {foundProject.Name}").ConfigureAwait(false);
                             return foundProject;
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    LogAsync($"Error in recursive project directory search: {ex.Message}").ConfigureAwait(false);
+                    LogAsync($"[FindProjectByDirectoryRecursive] Error examining {project?.Name}: {ex.Message}").ConfigureAwait(false);
                 }
             }
+            
+            LogAsync($"[FindProjectByDirectoryRecursive] No match found for '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
             return null;
         }
 
@@ -1071,24 +1145,40 @@ namespace FileReceiverExtension
         /// </summary>
         private Project SearchProjectItemsRecursive(ProjectItems projectItems, string targetDirectory)
         {
+            var normalizedTarget = NormalizePath(targetDirectory);
+            LogAsync($"[SearchProjectItemsRecursive] Searching {projectItems?.Count ?? 0} project items for: '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
+            
             foreach (ProjectItem item in projectItems)
             {
                 try
                 {
                     if (item.SubProject != null)
                     {
+                        LogAsync($"[SearchProjectItemsRecursive] Checking sub-project: '{item.SubProject.Name}' (Kind: {item.SubProject.Kind})").ConfigureAwait(false);
+                        
                         var subProjDir = Path.GetDirectoryName(item.SubProject.FullName);
-                        if (string.Equals(subProjDir, targetDirectory, StringComparison.OrdinalIgnoreCase))
+                        var normalizedSubProjDir = NormalizePath(subProjDir);
+                        
+                        LogAsync($"[SearchProjectItemsRecursive] Sub-project directory: '{subProjDir}' (normalized: '{normalizedSubProjDir}')").ConfigureAwait(false);
+                        LogAsync($"[SearchProjectItemsRecursive] Target directory: '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
+                        
+                        var isMatch = string.Equals(normalizedSubProjDir, normalizedTarget, StringComparison.OrdinalIgnoreCase);
+                        LogAsync($"[SearchProjectItemsRecursive] Normalized comparison result: {isMatch}").ConfigureAwait(false);
+                        
+                        if (isMatch)
                         {
+                            LogAsync($"[SearchProjectItemsRecursive] MATCH FOUND: {item.SubProject.Name}").ConfigureAwait(false);
                             return item.SubProject;
                         }
                         
                         // If this sub-project is also a solution folder, search it recursively
                         if (item.SubProject.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}" && item.SubProject.ProjectItems != null)
                         {
+                            LogAsync($"[SearchProjectItemsRecursive] Recursing into nested solution folder: {item.SubProject.Name}").ConfigureAwait(false);
                             var foundProject = SearchProjectItemsRecursive(item.SubProject.ProjectItems, targetDirectory);
                             if (foundProject != null)
                             {
+                                LogAsync($"[SearchProjectItemsRecursive] Found in nested folder: {foundProject.Name}").ConfigureAwait(false);
                                 return foundProject;
                             }
                         }
@@ -1096,9 +1186,11 @@ namespace FileReceiverExtension
                 }
                 catch (Exception ex)
                 {
-                    LogAsync($"Error checking project item: {ex.Message}").ConfigureAwait(false);
+                    LogAsync($"[SearchProjectItemsRecursive] Error checking project item: {ex.Message}").ConfigureAwait(false);
                 }
             }
+            
+            LogAsync($"[SearchProjectItemsRecursive] No match found in project items for '{targetDirectory}' (normalized: '{normalizedTarget}')").ConfigureAwait(false);
             return null;
         }
 
