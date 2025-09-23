@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Folder Selection - File Receiver Extension</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        button { padding: 10px 20px; margin: 5px; }
+        select, input, textarea { margin: 5px; padding: 5px; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Test Folder Selection - File Receiver Extension</h1>
+    <p>This page tests the folder selection functionality for the Visual Studio File Receiver Extension.</p>
+    
+    <div id="status"></div>
+    
+    <h2>Folder Structure Test</h2>
+    
+    <div class="test-case">
+        <h3>Test 1: Get Folder Structure</h3>
+        <button onclick="testGetFolders()">Get Folders from VS</button>
+        <div id="folders-result"></div>
+        <select id="test-folder-select" style="width: 100%; margin-top: 10px;">
+            <option value="">Project Root</option>
+        </select>
+    </div>
+    
+    <div class="test-case">
+        <h3>Test 2: Send File to Selected Folder</h3>
+        <div class="form-group">
+            <label for="test-folder">Select Folder:</label>
+            <select id="test-folder" style="width: 100%;">
+                <option value="">Project Root</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="test-filename">File Name:</label>
+            <input type="text" id="test-filename" value="test-folder-file.txt" style="width: 100%;" />
+        </div>
+        
+        <div class="form-group">
+            <label for="test-content">File Content:</label>
+            <textarea id="test-content" style="width: 100%; height: 100px;">This is a test file created in a specific folder.</textarea>
+        </div>
+        
+        <button onclick="testSendFileToFolder()">Send File to Selected Folder</button>
+        <div id="send-result"></div>
+    </div>
+
+    <script>
+        function testGetFolders() {
+            document.getElementById('folders-result').innerHTML = '<p>Loading folders...</p>';
+            
+            fetch('http://localhost:8080/folders')
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    console.log('Folders response:', data);
+                    
+                    let html = '<h4>Folder Structure:</h4><ul>';
+                    const folderSelect = document.getElementById('test-folder-select');
+                    const testFolder = document.getElementById('test-folder');
+                    
+                    // Clear existing options
+                    folderSelect.innerHTML = '<option value="">Project Root</option>';
+                    testFolder.innerHTML = '<option value="">Project Root</option>';
+                    
+                    if (data.folders && data.folders.length > 0) {
+                        data.folders.forEach(folder => {
+                            html += `<li><strong>${folder.name}</strong> (${folder.path || 'root'})</li>`;
+                            
+                            if (folder.path !== "") {
+                                const option1 = document.createElement('option');
+                                option1.value = folder.path;
+                                option1.textContent = folder.name;
+                                folderSelect.appendChild(option1);
+                                
+                                const option2 = document.createElement('option');
+                                option2.value = folder.path;
+                                option2.textContent = folder.name;
+                                testFolder.appendChild(option2);
+                            }
+                        });
+                    }
+                    html += '</ul>';
+                    
+                    document.getElementById('folders-result').innerHTML = html;
+                    document.getElementById('folders-result').className = 'success';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('folders-result').innerHTML = `<p>Error: ${error.message}</p>`;
+                    document.getElementById('folders-result').className = 'error';
+                });
+        }
+
+        function testSendFileToFolder() {
+            const folder = document.getElementById('test-folder').value;
+            const filename = document.getElementById('test-filename').value;
+            const content = document.getElementById('test-content').value;
+            
+            if (!filename.trim()) {
+                alert('Please enter a filename');
+                return;
+            }
+            
+            const fileData = {
+                fileName: filename,
+                content: content
+            };
+            
+            if (folder && folder.trim() !== '') {
+                fileData.folderPath = folder.trim();
+            }
+            
+            console.log('Sending file data:', fileData);
+            document.getElementById('send-result').innerHTML = '<p>Sending file...</p>';
+            
+            fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(fileData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .then(data => {
+                const location = folder ? `folder '${folder}'` : 'project root';
+                document.getElementById('send-result').innerHTML = `<p>✓ SUCCESS: File sent to ${location}! ${data}</p>`;
+                document.getElementById('send-result').className = 'success';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('send-result').innerHTML = `<p>✗ ERROR: ${error.message}</p>`;
+                document.getElementById('send-result').className = 'error';
+            });
+        }
+
+        // Check if server is running
+        fetch('http://localhost:8080/', { method: 'OPTIONS' })
+            .then(() => {
+                document.getElementById('status').innerHTML = '<p style="color: green;">✓ Visual Studio File Receiver Extension is running</p>';
+            })
+            .catch(() => {
+                document.getElementById('status').innerHTML = '<p style="color: red;">✗ Visual Studio File Receiver Extension is not running. Please start Visual Studio with the extension installed.</p>';
+            });
+    </script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -152,6 +153,11 @@ namespace FileReceiverExtension
                     await LogAsync("Processing POST request for file upload");
                     await HandleFileUploadAsync(request, response);
                 }
+                else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/folders")
+                {
+                    await LogAsync("Processing GET request for folder structure");
+                    await HandleGetFoldersAsync(request, response);
+                }
                 else
                 {
                     await LogAsync($"Method {request.HttpMethod} not allowed");
@@ -204,7 +210,7 @@ namespace FileReceiverExtension
                 }
 
                 // Add file to active project
-                var success = await AddFileToProjectAsync(fileData.FileName, fileData.Content);
+                var success = await AddFileToProjectAsync(fileData.FileName, fileData.Content, fileData.FolderPath);
                 
                 if (success)
                 {
@@ -228,6 +234,133 @@ namespace FileReceiverExtension
             }
         }
 
+        private async Task HandleGetFoldersAsync(HttpListenerRequest request, HttpListenerResponse response)
+        {
+            try
+            {
+                await LogAsync("Retrieving project folder structure");
+
+                // Get the active project
+                var project = GetActiveProject();
+                if (project == null)
+                {
+                    await LogAsync("No active project found for folder request");
+                    response.StatusCode = 404;
+                    await WriteResponseAsync(response, "{\"error\":\"No active project found\"}");
+                    return;
+                }
+
+                // Get project directory
+                var projectDir = Path.GetDirectoryName(project.FullName);
+                if (string.IsNullOrEmpty(projectDir))
+                {
+                    await LogAsync("Could not determine project directory");
+                    response.StatusCode = 500;
+                    await WriteResponseAsync(response, "{\"error\":\"Could not determine project directory\"}");
+                    return;
+                }
+
+                // Get folder structure
+                var folders = GetProjectFolders(projectDir);
+                var jsonResponse = CreateFoldersJson(folders);
+
+                response.StatusCode = 200;
+                response.ContentType = "application/json";
+                await WriteResponseAsync(response, jsonResponse);
+                await LogAsync($"Sent folder structure with {folders.Count} folders");
+            }
+            catch (Exception ex)
+            {
+                await LogAsync($"Error handling get folders request: {ex.Message}");
+                response.StatusCode = 500;
+                await WriteResponseAsync(response, "{\"error\":\"Internal server error\"}");
+            }
+        }
+
+        private List<FolderInfo> GetProjectFolders(string projectDir)
+        {
+            var folders = new List<FolderInfo>();
+            
+            try
+            {
+                // Add root folder
+                folders.Add(new FolderInfo 
+                { 
+                    Name = "Project Root", 
+                    Path = "", 
+                    FullPath = projectDir 
+                });
+
+                // Get all subdirectories
+                var directories = Directory.GetDirectories(projectDir, "*", SearchOption.AllDirectories);
+                
+                foreach (var dir in directories)
+                {
+                    // Skip hidden directories and common build/package directories
+                    var dirName = Path.GetFileName(dir);
+                    if (dirName.StartsWith(".") || 
+                        dirName.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                        dirName.Equals("obj", StringComparison.OrdinalIgnoreCase) ||
+                        dirName.Equals("packages", StringComparison.OrdinalIgnoreCase) ||
+                        dirName.Equals("node_modules", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var relativePath = Path.GetRelativePath(projectDir, dir);
+                    folders.Add(new FolderInfo 
+                    { 
+                        Name = dirName, 
+                        Path = relativePath.Replace(Path.DirectorySeparatorChar, '/'),
+                        FullPath = dir
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                LogAsync($"Error reading project folders: {ex.Message}").ConfigureAwait(false);
+            }
+
+            return folders;
+        }
+
+        private string CreateFoldersJson(List<FolderInfo> folders)
+        {
+            var jsonBuilder = new StringBuilder();
+            jsonBuilder.Append("{\"folders\":[");
+            
+            for (int i = 0; i < folders.Count; i++)
+            {
+                if (i > 0) jsonBuilder.Append(",");
+                
+                jsonBuilder.Append("{");
+                jsonBuilder.Append($"\"name\":\"{EscapeJsonString(folders[i].Name)}\",");
+                jsonBuilder.Append($"\"path\":\"{EscapeJsonString(folders[i].Path)}\"");
+                jsonBuilder.Append("}");
+            }
+            
+            jsonBuilder.Append("]}");
+            return jsonBuilder.ToString();
+        }
+
+        private string EscapeJsonString(string str)
+        {
+            if (string.IsNullOrEmpty(str)) return str;
+            
+            return str.Replace("\\", "\\\\")
+                     .Replace("\"", "\\\"")
+                     .Replace("\n", "\\n")
+                     .Replace("\r", "\\r")
+                     .Replace("\t", "\\t");
+        }
+
+        private class FolderInfo
+        {
+            public string Name { get; set; }
+            public string Path { get; set; }
+            public string FullPath { get; set; }
+        }
+
         private async Task<FileData> ParseFileDataAsync(string json)
         {
             try
@@ -237,6 +370,7 @@ namespace FileReceiverExtension
                 // Simple JSON parsing - handles both single-line and multi-line JSON
                 string fileName = null;
                 string content = null;
+                string folderPath = null;
 
                 // Extract fileName using regex pattern that handles both formats
                 var fileNameMatch = Regex.Match(json, @"""fileName""\s*:\s*""([^""]*?)""");
@@ -254,9 +388,19 @@ namespace FileReceiverExtension
                     content = content.Replace("\\\"", "\"").Replace("\\\\", "\\").Replace("\\n", "\n").Replace("\\r", "\r").Replace("\\t", "\t");
                 }
 
+                // Extract optional folderPath
+                var folderMatch = Regex.Match(json, @"""folderPath""\s*:\s*""([^""]*?)""");
+                if (folderMatch.Success)
+                {
+                    folderPath = folderMatch.Groups[1].Value;
+                    // Unescape folder path
+                    folderPath = folderPath.Replace("\\\\", "\\").Replace("\\/", "/");
+                }
+
                 if (!string.IsNullOrEmpty(fileName) && content != null)
                 {
-                    await LogAsync($"Successfully parsed file: {fileName}");
+                    await LogAsync($"Successfully parsed file: {fileName}" + 
+                                  (string.IsNullOrEmpty(folderPath) ? "" : $" in folder: {folderPath}"));
                     
                     // Decode content if it's base64 encoded
                     if (IsBase64String(content))
@@ -265,7 +409,7 @@ namespace FileReceiverExtension
                         content = Encoding.UTF8.GetString(Convert.FromBase64String(content));
                     }
                     
-                    return new FileData { FileName = fileName, Content = content };
+                    return new FileData { FileName = fileName, Content = content, FolderPath = folderPath };
                 }
                 else
                 {
@@ -357,7 +501,7 @@ namespace FileReceiverExtension
             }
         }
 
-        private async Task<bool> AddFileToProjectAsync(string fileName, string content)
+        private async Task<bool> AddFileToProjectAsync(string fileName, string content, string folderPath = null)
         {
             try
             {
@@ -379,8 +523,29 @@ namespace FileReceiverExtension
                     return false;
                 }
 
-                // Create the full file path
-                var filePath = Path.Combine(projectDir, fileName);
+                // Create the full file path, considering optional folder path
+                string filePath;
+                if (!string.IsNullOrEmpty(folderPath))
+                {
+                    // Validate and normalize folder path
+                    var normalizedFolderPath = folderPath.Replace('/', Path.DirectorySeparatorChar);
+                    
+                    // Security check: prevent directory traversal attacks
+                    if (normalizedFolderPath.Contains("..") || Path.IsPathRooted(normalizedFolderPath))
+                    {
+                        await LogAsync($"Invalid folder path detected: {folderPath}");
+                        return false;
+                    }
+                    
+                    var targetDir = Path.Combine(projectDir, normalizedFolderPath);
+                    filePath = Path.Combine(targetDir, fileName);
+                    await LogAsync($"Creating file in specified folder: {normalizedFolderPath}");
+                }
+                else
+                {
+                    filePath = Path.Combine(projectDir, fileName);
+                    await LogAsync("Creating file in project root");
+                }
 
                 // Ensure directory exists
                 var directory = Path.GetDirectoryName(filePath);
@@ -503,6 +668,7 @@ namespace FileReceiverExtension
         {
             public string FileName { get; set; }
             public string Content { get; set; }
+            public string FolderPath { get; set; } // Optional folder path relative to project root
         }
     }
 }
