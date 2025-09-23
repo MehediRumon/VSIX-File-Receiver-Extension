@@ -275,7 +275,7 @@ namespace FileReceiverExtension
                 }
 
                 // Write file content
-                await File.WriteAllTextAsync(filePath, content);
+                File.WriteAllText(filePath, content);
 
                 // Add file to project
                 project.ProjectItems.AddFromFile(filePath);
