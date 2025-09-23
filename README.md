@@ -5,17 +5,21 @@ This Visual Studio extension automatically receives files from a Chrome extensio
 ## Features
 
 - **HTTP Server**: Listens on `http://localhost:8080/` for incoming file data from Chrome extensions
+- **Folder Navigation**: Browse and select specific project folders for file placement
 - **CORS Support**: Enables Cross-Origin Resource Sharing for Chrome extension communication
 - **Automatic Project Integration**: Files are automatically added to the active Visual Studio project
+- **Flexible File Placement**: Create files in project root or any subfolder
 - **Output Window Logging**: All operations are logged to a dedicated output pane in Visual Studio
+- **Security**: Path validation prevents directory traversal attacks
 - **Error Handling**: Comprehensive error handling and status reporting
 
 ## How It Works
 
 1. **Visual Studio Extension**: Starts an HTTP server on localhost:8080 when a solution is loaded
-2. **Chrome Extension**: Sends POST requests with file data (JSON format: `{fileName: "", content: ""}`)
-3. **File Creation**: Files are created in the project directory and added to the Visual Studio project
-4. **Project Integration**: Uses Visual Studio DTE (Development Tools Environment) to add files to the project
+2. **Folder Discovery**: GET /folders endpoint provides project folder structure to Chrome extension
+3. **Chrome Extension**: Sends POST requests with file data (JSON format: `{fileName: "", content: "", folderPath: ""}`)
+4. **File Creation**: Files are created in the specified project directory and added to the Visual Studio project
+5. **Project Integration**: Uses Visual Studio DTE (Development Tools Environment) to add files to the project
 
 ## Installation
 
@@ -49,9 +53,11 @@ When the Visual Studio extension is running (indicated by "File Receiver Service
 ### Manual File Sending (Sample Chrome Extension)
 
 1. Click the Chrome extension icon
-2. Enter a file name and content
-3. Click "Send to Visual Studio"
-4. The file will be created and added to your active Visual Studio project
+2. Click the refresh button (🔄) to load available project folders
+3. Select a target folder from the dropdown (or leave as "Project Root")
+4. Enter a file name and content
+5. Click "Send to Visual Studio"
+6. The file will be created and added to your active Visual Studio project in the specified folder
 
 ### Automatic File Sending (Content Script)
 
@@ -86,6 +92,37 @@ All operations are logged to the "File Receiver Extension" output pane in Visual
 
 ## API Endpoints
 
+## API Endpoints
+
+### GET /folders
+
+Retrieves the folder structure of the active Visual Studio project.
+
+**Response:**
+```json
+{
+  "folders": [
+    {
+      "name": "Project Root",
+      "path": ""
+    },
+    {
+      "name": "Controllers",
+      "path": "Controllers"
+    },
+    {
+      "name": "Models",
+      "path": "Models"
+    }
+  ]
+}
+```
+
+**Status Codes:**
+- `200 OK`: Folder structure returned successfully
+- `404 Not Found`: No active project found
+- `500 Internal Server Error`: Error reading project structure
+
 ### POST /
 
 Receives file data and adds it to the active Visual Studio project.
@@ -94,7 +131,27 @@ Receives file data and adds it to the active Visual Studio project.
 ```json
 {
   "fileName": "example.txt",
-  "content": "File content (can be base64 encoded)"
+  "content": "File content (can be base64 encoded)",
+  "folderPath": "Controllers" // Optional: target folder path
+}
+```
+
+**Examples:**
+
+Create file in project root:
+```json
+{
+  "fileName": "readme.txt",
+  "content": "This is a readme file"
+}
+```
+
+Create file in specific folder:
+```json
+{
+  "fileName": "UserController.cs",
+  "content": "using System;\n\npublic class UserController { }",
+  "folderPath": "Controllers"
 }
 ```
 
@@ -128,6 +185,17 @@ Handles CORS preflight requests for Chrome extensions.
 1. Open the solution in Visual Studio
 2. Build the project (this will create the VSIX package)
 3. Install the generated VSIX file from `bin/Debug/` or `bin/Release/`
+
+### Testing the Implementation
+
+The repository includes test files to validate functionality:
+
+1. **test-folder-selection.html**: Comprehensive test for folder navigation and file creation
+   - Open this file in a browser while the VSIX extension is running
+   - Test folder structure retrieval from Visual Studio
+   - Test file creation in specific folders
+   
+2. **test-json-fix.html**: Tests JSON parsing and basic file creation
 
 ### Customizing the Chrome Extension
 
