@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Project Selection - File Receiver Extension</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        button { padding: 10px 20px; margin: 5px; }
+        select, input, textarea { margin: 5px; padding: 5px; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Test Project Selection - File Receiver Extension</h1>
+    <p>This page tests the new project selection functionality for the Visual Studio File Receiver Extension.</p>
+    
+    <div id="status"></div>
+    
+    <h2>Project Management Test</h2>
+    
+    <div class="test-case">
+        <h3>Test 1: Get Projects List</h3>
+        <button onclick="testGetProjects()">Get Projects from VS</button>
+        <div id="projects-result"></div>
+        <select id="test-project-select" style="width: 100%; margin-top: 10px;">
+            <option value="">Select a project...</option>
+        </select>
+    </div>
+    
+    <div class="test-case">
+        <h3>Test 2: Get Folders for Selected Project</h3>
+        <button onclick="testGetFolders()">Get Folders from VS (Current Active Project)</button>
+        <div id="folders-result"></div>
+        <select id="test-folder-select" style="width: 100%; margin-top: 10px;">
+            <option value="">Project Root</option>
+        </select>
+    </div>
+    
+    <div class="test-case">
+        <h3>Test 3: Send File to Selected Project and Folder</h3>
+        <div class="form-group">
+            <label for="test-project">Select Project:</label>
+            <select id="test-project" style="width: 100%;">
+                <option value="">Select a project...</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="test-folder">Select Folder:</label>
+            <select id="test-folder" style="width: 100%;">
+                <option value="">Project Root</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="test-filename">File Name:</label>
+            <input type="text" id="test-filename" value="TestProjectSelection.cs" style="width: 100%;" />
+        </div>
+        
+        <div class="form-group">
+            <label for="test-content">File Content:</label>
+            <textarea id="test-content" style="width: 100%; height: 100px;">
+public class TestProjectSelection 
+{
+    // This is a test file created using project selection feature
+    // Date: ${new Date().toISOString()}
+    
+    public void TestMethod()
+    {
+        Console.WriteLine("Project selection is working!");
+    }
+}
+            </textarea>
+        </div>
+        
+        <button onclick="testSendFileToProject()">Send File to Selected Project & Folder</button>
+        <div id="send-result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Test 4: Send Multiple Files (Element, Page, Steps, Feature)</h3>
+        <p>This simulates the Chrome extension's bulk file sending functionality.</p>
+        
+        <div class="form-group">
+            <label for="bulk-project">Select Project:</label>
+            <select id="bulk-project" style="width: 100%;">
+                <option value="">Select a project...</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="bulk-folder">Select Folder:</label>
+            <select id="bulk-folder" style="width: 100%;">
+                <option value="">Project Root</option>
+            </select>
+        </div>
+        
+        <button onclick="testSendMultipleFiles()">Send All Test Files (Element, Page, Steps, Feature)</button>
+        <div id="bulk-result"></div>
+    </div>
+
+    <script>
+        function testGetProjects() {
+            document.getElementById('projects-result').innerHTML = '<p>Loading projects...</p>';
+            
+            fetch('http://localhost:8080/projects')
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    console.log('Projects response:', data);
+                    
+                    let html = '<h4>Projects Found:</h4><ul>';
+                    const projectSelects = [
+                        document.getElementById('test-project-select'),
+                        document.getElementById('test-project'),
+                        document.getElementById('bulk-project')
+                    ];
+                    
+                    // Clear existing options
+                    projectSelects.forEach(select => {
+                        if (select) {
+                            select.innerHTML = '<option value="">Select a project...</option>';
+                        }
+                    });
+                    
+                    if (data.projects && data.projects.length > 0) {
+                        data.projects.forEach(project => {
+                            html += `<li><strong>${project.name}</strong><br>Directory: ${project.directory}<br>Full Name: ${project.fullName}</li>`;
+                            
+                            projectSelects.forEach(select => {
+                                if (select) {
+                                    const option = document.createElement('option');
+                                    option.value = project.directory;
+                                    option.textContent = project.name;
+                                    option.dataset.fullName = project.fullName;
+                                    select.appendChild(option);
+                                }
+                            });
+                        });
+                    } else {
+                        html += '<li>No projects found</li>';
+                    }
+                    html += '</ul>';
+                    
+                    document.getElementById('projects-result').innerHTML = html;
+                    document.getElementById('projects-result').className = 'success';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('projects-result').innerHTML = `<p>Error: ${error.message}</p>`;
+                    document.getElementById('projects-result').className = 'error';
+                });
+        }
+
+        function testGetFolders() {
+            document.getElementById('folders-result').innerHTML = '<p>Loading folders...</p>';
+            
+            fetch('http://localhost:8080/folders')
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    console.log('Folders response:', data);
+                    
+                    let html = '<h4>Folder Structure:</h4><ul>';
+                    const folderSelects = [
+                        document.getElementById('test-folder-select'),
+                        document.getElementById('test-folder'),
+                        document.getElementById('bulk-folder')
+                    ];
+                    
+                    // Clear existing options except root
+                    folderSelects.forEach(select => {
+                        if (select) {
+                            select.innerHTML = '<option value="">Project Root</option>';
+                        }
+                    });
+                    
+                    if (data.folders && data.folders.length > 0) {
+                        data.folders.forEach(folder => {
+                            html += `<li><strong>${folder.name}</strong> (${folder.path || 'root'})</li>`;
+                            
+                            if (folder.path !== "") {
+                                folderSelects.forEach(select => {
+                                    if (select) {
+                                        const option = document.createElement('option');
+                                        option.value = folder.path;
+                                        option.textContent = folder.name;
+                                        select.appendChild(option);
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        html += '<li>No folders found</li>';
+                    }
+                    html += '</ul>';
+                    
+                    document.getElementById('folders-result').innerHTML = html;
+                    document.getElementById('folders-result').className = 'success';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('folders-result').innerHTML = `<p>Error: ${error.message}</p>`;
+                    document.getElementById('folders-result').className = 'error';
+                });
+        }
+
+        function testSendFileToProject() {
+            const project = document.getElementById('test-project').value;
+            const folder = document.getElementById('test-folder').value;
+            const filename = document.getElementById('test-filename').value;
+            const content = document.getElementById('test-content').value;
+            
+            if (!project) {
+                alert('Please select a project first');
+                return;
+            }
+            
+            if (!filename.trim()) {
+                alert('Please enter a filename');
+                return;
+            }
+            
+            const fileData = {
+                fileName: filename,
+                content: content.replace('${new Date().toISOString()}', new Date().toISOString())
+            };
+            
+            if (folder && folder.trim() !== '') {
+                fileData.folderPath = folder.trim();
+            }
+            
+            fileData.projectDirectory = project.trim();
+            
+            console.log('Sending file data with project selection:', fileData);
+            document.getElementById('send-result').innerHTML = '<p>Sending file...</p>';
+            
+            fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(fileData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .then(data => {
+                const location = folder ? `folder '${folder}'` : 'project root';
+                const projectName = document.getElementById('test-project').selectedOptions[0].textContent;
+                document.getElementById('send-result').innerHTML = `<p>✓ SUCCESS: File sent to ${location} in project '${projectName}'! ${data}</p>`;
+                document.getElementById('send-result').className = 'success';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('send-result').innerHTML = `<p>✗ ERROR: ${error.message}</p>`;
+                document.getElementById('send-result').className = 'error';
+            });
+        }
+
+        function sendFileToProject(filename, content, folderPath = null, projectDirectory = null) {
+            const fileData = {
+                fileName: filename,
+                content: content
+            };
+            
+            if (folderPath && folderPath.trim() !== '') {
+                fileData.folderPath = folderPath.trim();
+            }
+            
+            if (projectDirectory && projectDirectory.trim() !== '') {
+                fileData.projectDirectory = projectDirectory.trim();
+            }
+            
+            return fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(fileData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            });
+        }
+
+        function testSendMultipleFiles() {
+            const project = document.getElementById('bulk-project').value;
+            const folder = document.getElementById('bulk-folder').value;
+            
+            if (!project) {
+                alert('Please select a project first');
+                return;
+            }
+            
+            document.getElementById('bulk-result').innerHTML = '<p>Sending multiple files...</p>';
+            
+            const timestamp = new Date().toISOString();
+            const files = {
+                'TestElement.cs': `public static class TestElement {
+    // Element file created on ${timestamp}
+    public static IWebElement TestButton => Driver.FindElement(By.Id("test-button"));
+    public static IWebElement TestInput => Driver.FindElement(By.Name("test-input"));
+}`,
+                'TestPage.cs': `public static class TestPage(IWebDriver driver) {
+    // Page file created on ${timestamp}
+    public IWebDriver Driver => driver;
+    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;
+    
+    public void ClickTestButton() {
+        TestElement.TestButton.Click();
+    }
+}`,
+                'TestStep.cs': `public class TestStep {
+    // Step file created on ${timestamp}
+    
+    [When(@"I click the test button")]
+    public void WhenIClickTheTestButton() {
+        TestPage.ClickTestButton();
+    }
+}`,
+                'Test.feature': `Feature: Test Functionality
+  # Feature file created on ${timestamp}
+  
+  Scenario: Test project selection
+    When I click the test button
+    Then the test should pass`
+            };
+            
+            let successCount = 0;
+            let errorCount = 0;
+            const totalFiles = Object.keys(files).length;
+            
+            const promises = Object.entries(files).map(([filename, content]) => {
+                return sendFileToProject(filename, content, folder, project)
+                    .then(() => {
+                        successCount++;
+                        return { success: true, filename };
+                    })
+                    .catch(error => {
+                        errorCount++;
+                        return { success: false, filename, error: error.message };
+                    });
+            });
+            
+            Promise.all(promises).then(results => {
+                const projectName = document.getElementById('bulk-project').selectedOptions[0].textContent;
+                const location = folder ? `folder '${folder}'` : 'project root';
+                
+                let html = `<h4>Bulk File Send Results:</h4>`;
+                html += `<p><strong>Target:</strong> ${location} in project '${projectName}'</p>`;
+                html += `<p><strong>Success:</strong> ${successCount}/${totalFiles} files</p>`;
+                
+                if (errorCount > 0) {
+                    html += `<p><strong>Errors:</strong> ${errorCount} files failed</p>`;
+                    html += '<ul>';
+                    results.forEach(result => {
+                        if (!result.success) {
+                            html += `<li>❌ ${result.filename}: ${result.error}</li>`;
+                        }
+                    });
+                    html += '</ul>';
+                }
+                
+                if (successCount > 0) {
+                    html += '<p>✅ Successfully sent files:</p><ul>';
+                    results.forEach(result => {
+                        if (result.success) {
+                            html += `<li>✅ ${result.filename}</li>`;
+                        }
+                    });
+                    html += '</ul>';
+                }
+                
+                document.getElementById('bulk-result').innerHTML = html;
+                document.getElementById('bulk-result').className = successCount === totalFiles ? 'success' : 'error';
+            });
+        }
+
+        // Check if server is running
+        fetch('http://localhost:8080/', { method: 'OPTIONS' })
+            .then(() => {
+                document.getElementById('status').innerHTML = '<p style="color: green;">✓ Visual Studio File Receiver Extension is running</p>';
+            })
+            .catch(() => {
+                document.getElementById('status').innerHTML = '<p style="color: red;">✗ Visual Studio File Receiver Extension is not running. Please start Visual Studio with the extension installed.</p>';
+            });
+    </script>
+</body>
+</html>
