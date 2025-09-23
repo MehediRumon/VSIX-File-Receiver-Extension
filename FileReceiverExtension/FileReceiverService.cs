@@ -264,9 +264,49 @@ namespace FileReceiverExtension
 
         private bool IsBase64String(string s)
         {
+            // Basic checks first
+            if (string.IsNullOrEmpty(s))
+                return false;
+                
+            // Base64 strings should be at least 4 characters long for meaningful content
+            if (s.Length < 4)
+                return false;
+                
+            // Base64 length should be multiple of 4
+            if (s.Length % 4 != 0)
+                return false;
+                
+            // Check if string contains only valid base64 characters
+            if (!Regex.IsMatch(s, @"^[A-Za-z0-9+/]*={0,2}$"))
+                return false;
+                
+            // Additional check: if it contains whitespace, it's probably not base64
+            if (s.Contains(" ") || s.Contains("\n") || s.Contains("\t") || s.Contains("\r"))
+                return false;
+                
+            // Check for common patterns that indicate it's likely plain text, not base64
+            // Most base64 strings should have a good mix of upper/lower case and numbers
+            int upperCount = 0, lowerCount = 0, digitCount = 0;
+            foreach (char c in s.Replace("=", ""))
+            {
+                if (char.IsUpper(c)) upperCount++;
+                else if (char.IsLower(c)) lowerCount++;
+                else if (char.IsDigit(c)) digitCount++;
+            }
+            
+            // If it's all lowercase letters (like "test" -> "abcd"), it's likely not base64
+            if (upperCount == 0 && digitCount == 0 && s.Length <= 8)
+                return false;
+                
             try
             {
-                Convert.FromBase64String(s);
+                // Final validation: try to decode it
+                byte[] decoded = Convert.FromBase64String(s);
+                
+                // If decoded content is very short for a longer string, it's likely not intentional base64
+                if (s.Length > 12 && decoded.Length < 4)
+                    return false;
+                    
                 return true;
             }
             catch
