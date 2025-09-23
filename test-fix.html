@@ -11,21 +11,21 @@
     </style>
 </head>
 <body>
-    <h1>Test Fixed Base64 Detection - File Receiver Extension</h1>
-    <p>This page tests the fixed base64 detection in the Visual Studio File Receiver Extension.</p>
+    <h1>Test Fixed JSON Parsing - File Receiver Extension</h1>
+    <p>This page tests the fixed JSON parsing that resolves the "HTTP 400: Bad Request Invalid file data format" error.</p>
     
     <div id="status"></div>
     
     <h2>Test Cases</h2>
     
     <div class="test-case">
-        <h3>Test 1: Simple Text (should NOT be treated as base64)</h3>
+        <h3>Test 1: Simple Text (was failing before fix)</h3>
         <button onclick="testCase('test1.txt', 'test')">Send "test" as content</button>
         <div id="result1"></div>
     </div>
     
     <div class="test-case">
-        <h3>Test 2: Simple Text 2 (should NOT be treated as base64)</h3>
+        <h3>Test 2: Simple Text 2 (was failing before fix)</h3>
         <button onclick="testCase('test2.txt', 'abcd')">Send "abcd" as content</button>
         <div id="result2"></div>
     </div>
