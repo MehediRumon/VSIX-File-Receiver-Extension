@@ -136,7 +136,7 @@ namespace FileReceiverExtension
 
                 // Enable CORS for Chrome extension
                 response.Headers.Add("Access-Control-Allow-Origin", "*");
-                response.Headers.Add("Access-Control-Allow-Methods", "POST, OPTIONS");
+                response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
                 response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
 
                 if (request.HttpMethod == "OPTIONS")
