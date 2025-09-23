@@ -54,6 +54,9 @@ namespace FileReceiverExtension
                 // Create output pane for logging
                 await CreateOutputPaneAsync();
 
+                // Validate solution state
+                await ValidateSolutionStateAsync();
+
                 // Check if port is already in use
                 if (IsPortInUse(8080))
                 {
@@ -86,6 +89,62 @@ namespace FileReceiverExtension
             {
                 await LogAsync($"Error starting File Receiver Service: {ex.Message}");
                 await LogAsync($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
+        private async Task ValidateSolutionStateAsync()
+        {
+            try
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                
+                if (_dte?.Solution == null)
+                {
+                    await LogAsync("WARNING: Visual Studio DTE or Solution is not available");
+                    return;
+                }
+
+                if (!_dte.Solution.IsOpen)
+                {
+                    await LogAsync("WARNING: No solution is currently open in Visual Studio");
+                    await LogAsync("To use this extension, please open a solution with at least one project");
+                    return;
+                }
+
+                var projectCount = 0;
+                try
+                {
+                    projectCount = _dte.Solution.Projects.Count;
+                }
+                catch (Exception ex)
+                {
+                    await LogAsync($"WARNING: Cannot access solution projects: {ex.Message}");
+                    return;
+                }
+
+                if (projectCount == 0)
+                {
+                    await LogAsync("WARNING: Solution is open but contains no projects");
+                    await LogAsync("To use this extension, please ensure your solution has at least one project");
+                    return;
+                }
+
+                await LogAsync($"Solution validation successful - found {projectCount} project(s)");
+                
+                // Try to identify the active project early
+                var activeProject = GetActiveProject();
+                if (activeProject != null)
+                {
+                    await LogAsync($"Active project identified: {activeProject.Name}");
+                }
+                else
+                {
+                    await LogAsync("No specific active project identified yet - will use fallback logic when needed");
+                }
+            }
+            catch (Exception ex)
+            {
+                await LogAsync($"Error during solution state validation: {ex.Message}");
             }
         }
 
@@ -239,14 +298,19 @@ namespace FileReceiverExtension
             try
             {
                 await LogAsync("Retrieving project folder structure");
+                await LogAsync("Checking solution and project state...");
+
+                // Ensure we're on the UI thread for DTE operations
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 // Get the active project
                 var project = GetActiveProject();
                 if (project == null)
                 {
                     await LogAsync("No active project found for folder request");
+                    await LogAsync("Please ensure Visual Studio has a solution loaded with at least one project");
                     response.StatusCode = 404;
-                    await WriteResponseAsync(response, "{\"error\":\"No active project found\"}");
+                    await WriteResponseAsync(response, "{\"error\":\"No active project found. Please ensure Visual Studio has a solution loaded with at least one project.\"}");
                     return;
                 }
 
@@ -534,13 +598,17 @@ namespace FileReceiverExtension
         {
             try
             {
+                await LogAsync($"Attempting to add file '{fileName}' to project" + 
+                              (string.IsNullOrEmpty(folderPath) ? "" : $" in folder '{folderPath}'"));
+                
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 // Get the active project
                 var project = GetActiveProject();
                 if (project == null)
                 {
-                    await LogAsync("No active project found");
+                    await LogAsync("No active project found - cannot add file");
+                    await LogAsync("Please ensure Visual Studio has a solution loaded with at least one project");
                     return false;
                 }
 
@@ -604,47 +672,118 @@ namespace FileReceiverExtension
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
 
+                // Check if solution is properly loaded and has projects
+                if (_dte?.Solution == null)
+                {
+                    LogAsync("Solution is not available").ConfigureAwait(false);
+                    return null;
+                }
+
+                // Check if solution is fully loaded
+                if (!_dte.Solution.IsOpen)
+                {
+                    LogAsync("Solution is not open").ConfigureAwait(false);
+                    return null;
+                }
+
+                // Safely check project count
+                int projectCount = 0;
+                try
+                {
+                    projectCount = _dte.Solution.Projects.Count;
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Cannot access solution projects: {ex.Message}").ConfigureAwait(false);
+                    return null;
+                }
+
+                if (projectCount == 0)
+                {
+                    LogAsync("Solution contains no projects").ConfigureAwait(false);
+                    return null;
+                }
+
                 // Try to get the active project from solution explorer
-                var items = _dte.SelectedItems;
-                if (items.Count > 0)
+                try
                 {
-                    var item = items.Item(1);
-                    if (item.Project != null)
+                    var items = _dte.SelectedItems;
+                    if (items?.Count > 0)
                     {
-                        return item.Project;
-                    }
-                }
-
-                // Try to get from active document
-                var activeDocument = _dte.ActiveDocument;
-                if (activeDocument?.ProjectItem?.ContainingProject != null)
-                {
-                    return activeDocument.ProjectItem.ContainingProject;
-                }
-
-                // Get the startup project
-                var solutionBuild = _dte.Solution.SolutionBuild;
-                if (solutionBuild?.StartupProjects != null)
-                {
-                    var startupProjects = (Array)solutionBuild.StartupProjects;
-                    if (startupProjects.Length > 0)
-                    {
-                        var projectName = startupProjects.GetValue(0).ToString();
-                        foreach (Project project in _dte.Solution.Projects)
+                        var item = items.Item(1);
+                        if (item?.Project != null)
                         {
-                            if (project.Name == projectName)
-                            {
-                                return project;
-                            }
+                            LogAsync($"Found active project from selection: {item.Project.Name}").ConfigureAwait(false);
+                            return item.Project;
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error accessing selected items: {ex.Message}").ConfigureAwait(false);
+                }
+
+                // Try to get from active document
+                try
+                {
+                    var activeDocument = _dte.ActiveDocument;
+                    if (activeDocument?.ProjectItem?.ContainingProject != null)
+                    {
+                        LogAsync($"Found active project from document: {activeDocument.ProjectItem.ContainingProject.Name}").ConfigureAwait(false);
+                        return activeDocument.ProjectItem.ContainingProject;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error accessing active document: {ex.Message}").ConfigureAwait(false);
+                }
+
+                // Get the startup project
+                try
+                {
+                    var solutionBuild = _dte.Solution.SolutionBuild;
+                    if (solutionBuild?.StartupProjects != null)
+                    {
+                        var startupProjects = (Array)solutionBuild.StartupProjects;
+                        if (startupProjects.Length > 0)
+                        {
+                            var projectName = startupProjects.GetValue(0).ToString();
+                            foreach (Project project in _dte.Solution.Projects)
+                            {
+                                if (project.Name == projectName)
+                                {
+                                    LogAsync($"Found startup project: {project.Name}").ConfigureAwait(false);
+                                    return project;
+                                }
+                            }
+                            LogAsync($"Startup project '{projectName}' not found in solution").ConfigureAwait(false);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error accessing startup project: {ex.Message}").ConfigureAwait(false);
+                }
 
                 // Fall back to first project in solution
-                if (_dte.Solution.Projects.Count > 0)
+                try
                 {
-                    return _dte.Solution.Projects.Item(1);
+                    if (_dte.Solution.Projects.Count > 0)
+                    {
+                        var firstProject = _dte.Solution.Projects.Item(1);
+                        if (firstProject != null)
+                        {
+                            LogAsync($"Using first project as fallback: {firstProject.Name}").ConfigureAwait(false);
+                            return firstProject;
+                        }
+                    }
                 }
+                catch (Exception ex)
+                {
+                    LogAsync($"Error accessing first project: {ex.Message}").ConfigureAwait(false);
+                }
+
+                LogAsync("No active project could be determined after trying all fallback methods").ConfigureAwait(false);
             }
             catch (Exception ex)
             {

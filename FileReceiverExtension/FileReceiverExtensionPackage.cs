@@ -66,11 +66,21 @@ namespace FileReceiverExtension
                     _fileReceiverService = new FileReceiverService(outputWindow, dte);
                     await _fileReceiverService.StartAsync();
                 }
+                else
+                {
+                    // Log service availability issues for debugging
+                    var missingServices = new System.Collections.Generic.List<string>();
+                    if (outputWindow == null) missingServices.Add("SVsOutputWindow");
+                    if (dte == null) missingServices.Add("DTE");
+                    
+                    System.Diagnostics.Debug.WriteLine($"FileReceiverExtension: Cannot start - missing services: {string.Join(", ", missingServices)}");
+                }
             }
             catch (Exception ex)
             {
-                // Log initialization error
+                // Log initialization error with more detail
                 System.Diagnostics.Debug.WriteLine($"FileReceiverExtension initialization error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
 
