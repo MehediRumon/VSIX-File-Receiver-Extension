@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VSIX Extension - Before vs After Comparison</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .before, .after {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .before {
+            border-left: 4px solid #ef4444;
+        }
+        .after {
+            border-left: 4px solid #10b981;
+        }
+        h2 {
+            margin-top: 0;
+            color: #1f2937;
+        }
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: Monaco, 'Courier New', monospace;
+            margin: 10px 0;
+        }
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: Monaco, 'Courier New', monospace;
+            margin: 10px 0;
+        }
+        .mockup {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .dropdown {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .dropdown:disabled {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        .button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .button:disabled {
+            background: #9ca3af;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .feature-list li:before {
+            content: "✅";
+            margin-right: 8px;
+        }
+        .issue-list li:before {
+            content: "❌";
+        }
+        h1 {
+            text-align: center;
+            color: #1f2937;
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 VSIX File Receiver Extension - Before vs After Fixes</h1>
+
+    <div class="comparison">
+        <div class="before">
+            <h2>🚫 Before (Issues)</h2>
+            
+            <h3>Problem 1: Project Detection</h3>
+            <div class="error">
+                {"error":"No projects found in solution"}
+            </div>
+            <p><strong>Issue:</strong> Projects in solution folders were ignored</p>
+            
+            <div class="mockup">
+                <label>Projects:</label>
+                <select class="dropdown" disabled>
+                    <option>No projects found...</option>
+                </select>
+            </div>
+
+            <h3>Problem 2: Folder Selection</h3>
+            <p><strong>Issue:</strong> Could only use "active" project for folders</p>
+            
+            <div class="mockup">
+                <label>Folders:</label>
+                <select class="dropdown" disabled>
+                    <option>Select project first...</option>
+                </select>
+                <p style="color: #6b7280; font-size: 14px;">⚠️ Only works with currently active VS project</p>
+            </div>
+
+            <h3>Issues List:</h3>
+            <ul class="feature-list issue-list">
+                <li>Projects in solution folders not detected</li>
+                <li>No project-specific folder loading</li>
+                <li>Synchronous project detection causing blocks</li>
+                <li>Limited debugging information</li>
+                <li>Chrome extension couldn't target specific projects</li>
+            </ul>
+        </div>
+
+        <div class="after">
+            <h2>✅ After (Fixed)</h2>
+            
+            <h3>Solution 1: Enhanced Project Detection</h3>
+            <div class="success">
+                {"projects": [
+                    {"name": "MyWebApp", "directory": "C:\\Projects\\WebApp"},
+                    {"name": "MyLibrary", "directory": "C:\\Projects\\Libs\\MyLibrary"},
+                    {"name": "Tests", "directory": "C:\\Projects\\Tests"}
+                ]}
+            </div>
+            <p><strong>Fixed:</strong> Recursive scanning finds projects anywhere</p>
+            
+            <div class="mockup">
+                <label>Projects:</label>
+                <select class="dropdown">
+                    <option>MyWebApp (C:\Projects\WebApp)</option>
+                    <option>MyLibrary (C:\Projects\Libs\MyLibrary)</option>
+                    <option>Tests (C:\Projects\Tests)</option>
+                </select>
+            </div>
+
+            <h3>Solution 2: Project-Specific Folders</h3>
+            <p><strong>Fixed:</strong> Folders loaded for selected project</p>
+            
+            <div class="mockup">
+                <label>Folders for MyWebApp:</label>
+                <select class="dropdown">
+                    <option>Project Root</option>
+                    <option>Controllers</option>
+                    <option>Models</option>
+                    <option>Views</option>
+                    <option>wwwroot</option>
+                </select>
+                <p style="color: #059669; font-size: 14px;">✅ Dynamic folder loading based on selected project</p>
+            </div>
+
+            <h3>Improvements Made:</h3>
+            <ul class="feature-list">
+                <li>Recursive solution folder scanning</li>
+                <li>Project-specific folder API</li>
+                <li>Async/await project detection</li>
+                <li>Enhanced error handling & logging</li>
+                <li>Backwards compatible API</li>
+                <li>Comprehensive test coverage</li>
+            </ul>
+        </div>
+    </div>
+
+    <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
+        <h2>🎯 Expected Workflow (After Fix)</h2>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px;">
+            <div style="padding: 15px; background: #eff6ff; border-radius: 6px;">
+                <h4>1. Load Projects</h4>
+                <p>✅ Detects all projects including nested ones</p>
+            </div>
+            <div style="padding: 15px; background: #f0f9ff; border-radius: 6px;">
+                <h4>2. Select Project</h4>
+                <p>🎯 Choose specific target project</p>
+            </div>
+            <div style="padding: 15px; background: #ecfdf5; border-radius: 6px;">
+                <h4>3. Select Folder</h4>
+                <p>📁 Pick folder within selected project</p>
+            </div>
+            <div style="padding: 15px; background: #f0fdf4; border-radius: 6px;">
+                <h4>4. Send Files</h4>
+                <p>🚀 Files placed in exact target location</p>
+            </div>
+        </div>
+    </div>
+
+    <div style="background: #fefce8; border: 1px solid #fde047; padding: 20px; border-radius: 8px; margin-top: 30px;">
+        <h3>🧪 Testing the Fixes</h3>
+        <p>Use the new <code>test-project-folder-integration.html</code> file to validate:</p>
+        <ol>
+            <li>Open Visual Studio with a solution containing projects (including ones in folders)</li>
+            <li>Build and install the updated VSIX extension</li>
+            <li>Open the test HTML file in Chrome</li>
+            <li>Test each step: Load Projects → Select Project → Load Folders → Send File</li>
+        </ol>
+    </div>
+</body>
+</html>
