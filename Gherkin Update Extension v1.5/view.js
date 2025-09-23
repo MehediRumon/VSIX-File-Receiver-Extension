@@ -1813,8 +1813,30 @@ function loadProjects() {
         })
         .catch(error => {
             console.error('Error loading projects:', error);
-            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${error.message}</span>`;
-            showToast('Error loading projects. Make sure Visual Studio is running with the extension.', 'error');
+            
+            // Provide more specific error messages based on error type
+            let errorMessage = error.message;
+            let toastMessage = 'Error loading projects.';
+            
+            if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                errorMessage = 'Cannot connect to Visual Studio extension (Connection refused)';
+                toastMessage = 'Cannot connect to Visual Studio. Make sure Visual Studio is running with the File Receiver Extension loaded and active.';
+            } else if (error.message.includes('NetworkError')) {
+                errorMessage = 'Network error connecting to Visual Studio extension';
+                toastMessage = 'Network error. Check if Visual Studio extension is running on localhost:8080.';
+            } else if (error.message.startsWith('HTTP')) {
+                errorMessage = `Server error: ${error.message}`;
+                toastMessage = `Visual Studio extension returned an error: ${error.message}`;
+            }
+            
+            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${errorMessage}</span>`;
+            
+            // Safely call showToast if it exists
+            if (typeof showToast === 'function') {
+                showToast(toastMessage, 'error');
+            } else if (typeof window.showToast === 'function') {
+                window.showToast(toastMessage, 'error');
+            }
         });
 }
 
@@ -1873,8 +1895,30 @@ function loadFolders() {
         })
         .catch(error => {
             console.error('Error loading folders:', error);
-            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${error.message}</span>`;
-            showToast('Error loading folders. Make sure Visual Studio is running.', 'error');
+            
+            // Provide more specific error messages based on error type
+            let errorMessage = error.message;
+            let toastMessage = 'Error loading folders.';
+            
+            if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                errorMessage = 'Cannot connect to Visual Studio extension (Connection refused)';
+                toastMessage = 'Cannot connect to Visual Studio. Make sure Visual Studio is running with the File Receiver Extension loaded and active.';
+            } else if (error.message.includes('NetworkError')) {
+                errorMessage = 'Network error connecting to Visual Studio extension';
+                toastMessage = 'Network error. Check if Visual Studio extension is running on localhost:8080.';
+            } else if (error.message.startsWith('HTTP')) {
+                errorMessage = `Server error: ${error.message}`;
+                toastMessage = `Visual Studio extension returned an error: ${error.message}`;
+            }
+            
+            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${errorMessage}</span>`;
+            
+            // Safely call showToast if it exists
+            if (typeof showToast === 'function') {
+                showToast(toastMessage, 'error');
+            } else if (typeof window.showToast === 'function') {
+                window.showToast(toastMessage, 'error');
+            }
         });
 }
 
