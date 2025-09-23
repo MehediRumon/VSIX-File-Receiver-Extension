@@ -1,0 +1,38 @@
+{
+    "manifest_version": 3,
+    "name": "Gherkin & XHR Logger",
+    "version": "4.2.0",
+    "description": "Collect Gherkin steps, locators, and log XHR requests.",
+    "permissions": [
+        "storage",
+        "scripting",
+        "webRequest"
+    ],
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "icons": {
+        "16": "icon128.png",
+        "48": "icon128.png",
+        "128": "icon128.png"
+    },
+    "content_scripts": [
+        {
+            "matches": [ "<all_urls>" ],
+            "js": [ "content.js" ],
+            "run_at": "document_idle"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [ "view.html", "view.js" ],
+            "matches": [ "<all_urls>" ]
+        }
+    ]
+}

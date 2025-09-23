@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Collected Output</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-light: #f4f7fb;
+            --text-light: #1f2937;
+            --card-light: #fff;
+            --code-light: #f1f3f6;
+            --accent: #0ea5e9;
+            --bg-dark: #1e293b;
+            --text-dark: #f1f5f9;
+            --card-dark: #334155;
+            --code-dark: #475569;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-light);
+            color: var(--text-light);
+            margin: 0;
+            padding: 0 0 2.4em 0;
+            transition: background 0.3s, color 0.3s;
+        }
+
+            body.dark-mode {
+                background: var(--bg-dark);
+                color: var(--text-dark);
+            }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem 0.5rem 2rem;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: 2px solid var(--accent);
+            color: var(--accent);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: auto;
+            padding: 2rem 1rem 1rem 1rem;
+        }
+
+        .section {
+            background: var(--card-light);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 14px;
+            box-shadow: 0 3px 16px rgba(0,0,0,0.07);
+            border: 1px solid #e0e7ef;
+        }
+
+        body.dark-mode .section {
+            background: var(--card-dark);
+            box-shadow: 0 2px 10px rgba(30,41,59,0.12);
+            border: 1px solid #334155;
+        }
+
+        h2 {
+            font-size: 1.23rem;
+            color: var(--accent);
+            margin-bottom: 1.1rem;
+            border-bottom: 2px solid #38bdf8;
+            padding-bottom: 6px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copy-control {
+            display: flex;
+            gap: 8px;
+        }
+
+        .copy-status {
+            color: #10b981;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+
+            .copy-status.show {
+                opacity: 1;
+            }
+
+        .copy-btn, .edit-btn {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: var(--accent);
+        }
+
+            .copy-btn:hover, .edit-btn:hover {
+                color: #0ea5e9;
+                transform: scale(1.12);
+            }
+
+        pre {
+            background: var(--code-light);
+            padding: 1.2em 1.1em;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            color: #222;
+            font-size: 1em;
+            margin-bottom: 0;
+            box-shadow: 0 2px 12px rgba(34,197,94,0.05);
+            border: 1px solid #e0e7ef;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        body.dark-mode pre {
+            background: var(--code-dark);
+            color: var(--text-dark);
+            border: 1px solid #334155;
+        }
+
+        /* Special styling for payload sections */
+        #xhrLogs {
+            line-height: 1.4;
+        }
+
+        .section p {
+            color: #666;
+        }
+
+        body.dark-mode .section p {
+            color: #94a3b8;
+        }
+
+        footer {
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        label, select {
+            font-size: 0.97rem;
+            margin-right: 10px;
+        }
+
+        #actionFilter, #xhrSearch {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: inherit;
+            margin-bottom: 0.5rem;
+        }
+
+        #xhrSearch {
+            width: 100%;
+            margin: 10px 0 0 0;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #f1f3f6;
+            color: #222;
+        }
+
+        body.dark-mode #xhrSearch {
+            background: #222b3c;
+            color: #e2e8f0;
+            border: 1px solid #64748b;
+        }
+
+        .toast-message {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 180px;
+            background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+            color: white;
+            padding: 13px 22px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+            z-index: 9999;
+            opacity: 0;
+            font-size: 1.05em;
+            font-weight: 500;
+            animation: slideUpFade 2s ease forwards;
+            text-align: center;
+        }
+
+        .toast-success {
+            background: linear-gradient(90deg,#22c55e,#16a34a);
+        }
+
+        .toast-error {
+            background: linear-gradient(90deg,#f87171,#fbbf24);
+        }
+
+        .toast-info {
+            background: linear-gradient(90deg,#38bdf8,#0ea5e9);
+        }
+
+        @keyframes slideUpFade {
+            0% {
+                opacity: 0;
+                transform: translateX(-50%) translateY(26px);
+            }
+
+            20% {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-10px);
+            }
+        }
+
+        @media (max-width: 700px) {
+            main {
+                padding: 0.5rem;
+            }
+
+            .section {
+                padding: 0.8rem;
+            }
+        }
+
+        /* Step Configuration Styles */
+        .step-config-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.8rem;
+            padding: 0.8rem;
+            background: rgba(14, 165, 233, 0.05);
+            border-radius: 6px;
+            border: 1px solid rgba(14, 165, 233, 0.1);
+        }
+
+        body.dark-mode .step-config-item {
+            background: rgba(14, 165, 233, 0.1);
+            border: 1px solid rgba(14, 165, 233, 0.2);
+        }
+
+        .step-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .step-config-label {
+            flex: 1;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+            color: #1f2937;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 0.4rem 0.6rem;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+        }
+
+        body.dark-mode .step-config-label {
+            color: #f1f5f9;
+            background: rgba(51, 65, 85, 0.8);
+            border: 1px solid #475569;
+        }
+
+        .step-edit-btn {
+            padding: 0.3rem 0.6rem;
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: background 0.2s;
+        }
+
+        .step-edit-btn:hover {
+            background: #0284c7;
+        }
+
+        .step-edit-input {
+            width: 100%;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid #0ea5e9;
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+            background: white;
+        }
+
+        body.dark-mode .step-edit-input {
+            background: #334155;
+            color: #f1f5f9;
+            border-color: #0ea5e9;
+        }
+
+        .edit-buttons {
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .edit-save-btn, .edit-cancel-btn {
+            padding: 0.3rem 0.6rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: opacity 0.2s;
+        }
+
+        .edit-save-btn:hover, .edit-cancel-btn:hover {
+            opacity: 0.8;
+        }
+
+        .step-config-select {
+            min-width: 180px;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            font-size: 0.9em;
+        }
+
+        body.dark-mode .step-config-select {
+            background: #374151;
+            border: 1px solid #4b5563;
+            color: #f1f5f9;
+        }
+
+        #generateStepFileBtn:hover {
+            background: #0284c7;
+            transform: translateY(-1px);
+        }
+
+        .copy-btn[data-target="stepFileCode"]:hover {
+            background: #059669 !important;
+            transform: translateY(-1px);
+        }
+
+        /* Excel Export Section Styles */
+        #exportExcelBtn:hover {
+            background: #059669 !important;
+            transform: translateY(-1px);
+        }
+
+        #addParameterBtn:hover {
+            background: #0284c7 !important;
+            transform: translateY(-1px);
+        }
+
+        #refreshExcelBtn:hover {
+            background: #7c3aed !important;
+            transform: translateY(-1px);
+        }
+
+        #forceRefreshBtn:hover {
+            background: #d97706 !important;
+            transform: translateY(-1px);
+        }
+
+        #clearParametersBtn:hover {
+            background: #dc2626 !important;
+            transform: translateY(-1px);
+        }
+
+        #parameterCount {
+            padding: 0.5rem 0.8rem;
+            background: rgba(14, 165, 233, 0.1);
+            border-radius: 6px;
+            border: 1px solid rgba(14, 165, 233, 0.2);
+            font-weight: 600;
+        }
+
+        body.dark-mode #parameterCount {
+            background: rgba(14, 165, 233, 0.15);
+            border: 1px solid rgba(14, 165, 233, 0.3);
+            color: #f1f5f9;
+        }
+
+        /* Excel values code section styling */
+        #excelValuesCode {
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        /* Download Modal Styles */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background-color: #ffffff;
+            margin: 5% auto;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        body.dark-mode .modal-content {
+            background-color: #1e293b;
+            color: #f1f5f9;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        body.dark-mode .modal-header {
+            border-bottom: 1px solid #334155;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #1e293b;
+            font-size: 1.3rem;
+        }
+
+        body.dark-mode .modal-header h3 {
+            color: #f1f5f9;
+        }
+
+        .close {
+            color: #64748b;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .close:hover {
+            color: #ef4444;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .download-section h4 {
+            margin-bottom: 0.5rem;
+            color: #374151;
+            font-size: 1.1rem;
+        }
+
+        body.dark-mode .download-section h4 {
+            color: #e5e7eb;
+        }
+
+        .download-btn {
+            transition: all 0.2s ease;
+            font-family: inherit;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .download-btn:active {
+            transform: translateY(0);
+        }
+
+        #fileNamesPreview {
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 style="font-size:1.45rem; color: #2196f3; margin:0;">🧾 Test Output Viewer</h1>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="forceRefreshBtn" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease; font-size: 0.9em;">
+                🔄 Refresh All
+            </button>
+            <button class="toggle-btn" id="themeToggleBtn">🌗 Theme</button>
+        </div>
+    </header>
+    <main>
+        <section class="section">
+            <h2>
+                📌 Locators
+                <div class="copy-control">
+                    <span class="copy-status" id="locatorStatus"></span>
+                    <button class="copy-btn" data-target="locatorCode" data-status="locatorStatus">📋</button>
+                    <button class="edit-btn" data-target="locatorCode">✏️</button>
+                </div>
+            </h2>
+            <pre id="locatorCode">Loading...</pre>
+        </section>
+        <section class="section">
+            <h2>
+                🧪 Gherkin Steps
+                <div class="copy-control">
+                    <span class="copy-status" id="gherkinStatus"></span>
+                    <button class="copy-btn" data-target="gherkinCode" data-status="gherkinStatus">📋</button>
+                    <button class="edit-btn" data-target="gherkinCode">✏️</button>
+                </div>
+            </h2>
+            <pre id="gherkinCode">Loading...</pre>
+        </section>
+        <section class="section">
+            <h2>
+                ⚙️ Step File Generator
+                <div class="copy-control">
+                    <span class="copy-status" id="stepFileStatus"></span>
+                    <button class="edit-btn" data-target="stepFileCode">✏️</button>
+                </div>
+            </h2>
+            <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
+                🎯 Select input types for each Gherkin step to generate dynamic step file code
+            </p>
+            <div style="margin-bottom: 1em;">
+                <!-- <button id="loadSampleDataBtn" style="background: #22c55e; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-right: 0.5rem;">
+                    📥 Load Sample Data
+                </button>
+                <button id="clearDataBtn" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-right: 0.5rem;">
+                    🗑️ Clear Data
+                </button> -->
+                <button id="refreshDataBtn" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">
+                    🔄 Refresh Data
+                </button>
+            </div>
+            <div id="stepConfigurationContainer" style="margin-bottom: 1em;">
+                <!-- Dynamic step configuration will be inserted here -->
+            </div>
+            <div style="margin-bottom: 1em; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button id="generateStepFileBtn" style="background: #0ea5e9; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease; height: 40px; min-width: 150px;">
+                    🚀 Generate Step File
+                </button>
+                <button class="copy-btn" data-target="stepFileCode" data-status="stepFileStatus" style="background: #10b981; color: white; border: none;  padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; height: 40px;">
+                    📋 Copy Code
+                </button>
+                <button id="downloadFilesBtn" style="background: #7c3aed; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease; height: 40px; min-width: 150px;">
+                    📥 Download Files
+                </button>
+                <span class="copy-status" id="stepFileStatus" style="font-size: 0.9em; color: #10b981; font-weight: 600;"></span>
+            </div>
+            <pre id="stepFileCode">Select input types and click Generate Step File...</pre>
+        </section>
+        <section class="section">
+            <h2>
+                🔧 Method Code
+                <div class="copy-control">
+                    <span class="copy-status" id="methodStatus"></span>
+                    <button class="copy-btn" data-target="methodCode" data-status="methodStatus">📋</button>
+                    <button class="edit-btn" data-target="methodCode">✏️</button>
+                </div>
+            </h2>
+            <pre id="methodCode">Loading...</pre>
+        </section>
+        <section class="section">
+            <h2>
+                📊 Export Excel Values
+                <div class="copy-control">
+                    <span class="copy-status" id="excelValuesStatus"></span>
+                    <button class="copy-btn" data-target="excelValuesCode" data-status="excelValuesStatus">📋</button>
+                    <button class="edit-btn" data-target="excelValuesCode">✏️</button>
+                </div>
+            </h2>
+            <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
+                📋 Live preview of parameters and values that will be exported to Excel
+            </p>
+            <div style="margin-bottom: 1em; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button id="exportExcelBtn" style="background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease;">
+                    📄 Export to Excel
+                </button>
+                <button id="addParameterBtn" style="background: #0ea5e9; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease;">
+                    ➕ Add Parameter
+                </button>
+                <button id="refreshExcelBtn" style="background: #8b5cf6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease;">
+                    🔄 Refresh Values
+                </button>
+                <button id="clearParametersBtn" style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s ease;">
+                    🗑️ Clear All
+                </button>
+                <span id="parameterCount" style="color: #666; font-size: 0.9em; margin-left: auto;">Parameters: 0</span>
+            </div>
+            <pre id="excelValuesCode">Loading Excel values...</pre>
+        </section>
+        <section class="section">
+            <h2>
+                🛰️ Logged XHR URLs & Payloads
+                <div class="copy-control">
+                    <span class="copy-status" id="xhrStatus"></span>
+                    <button class="copy-btn" data-target="xhrLogs" data-status="xhrStatus">📋</button>
+                    <button class="edit-btn" data-target="xhrLogs">✏️</button>
+                </div>
+            </h2>
+            <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
+                🔍 Logs include request payloads when available (JSON, form data, etc.)
+            </p>
+            <label for="actionFilter">Filter by Action:</label>
+            <select id="actionFilter"><option value="All">All</option></select>
+            <input type="text" id="xhrSearch" placeholder="🔍 Search logs (URL, method, payload)...">
+            <pre id="xhrLogs">Loading...</pre>
+        </section>
+        <section class="section">
+            <h2>
+                📂 Action Names
+                <div class="copy-control">
+                    <span class="copy-status" id="actionStatus"></span>
+                    <button class="copy-btn" data-target="xhrActions" data-status="actionStatus">📋</button>
+                    <button class="edit-btn" data-target="xhrActions">✏️</button>
+                </div>
+            </h2>
+            <pre id="xhrActions">Loading...</pre>
+        </section>
+    </main>
+    <footer>© 2025 OPL QA Team. All rights reserved.</footer>
+
+    <!-- Download Files Modal -->
+    <div id="downloadModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>📥 Download Generated Files</h3>
+                <span class="close" id="closeDownloadModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: #666;">Choose which files to download based on your action name:</p>
+                
+                <div class="download-section">
+                    <h4 style="margin-bottom: 0.5rem; color: #333;">Individual Files:</h4>
+                    <div class="download-buttons" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
+                        <button id="downloadElementBtn" class="download-btn" style="background: #22c55e; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📄 Element.cs
+                        </button>
+                        <button id="downloadPageBtn" class="download-btn" style="background: #3b82f6; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📄 Page.cs
+                        </button>
+                        <button id="downloadStepBtn" class="download-btn" style="background: #f59e0b; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📄 Step.cs
+                        </button>
+                        <button id="downloadFeatureBtn" class="download-btn" style="background: #8b5cf6; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📄 .feature
+                        </button>
+                    </div>
+                    
+                    <h4 style="margin-bottom: 0.5rem; color: #333;">Bulk Download:</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
+                        <button id="downloadAllIndividualBtn" class="download-btn" style="background: #06b6d4; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem;">
+                            📄 Download All Individual
+                        </button>
+                        <button id="downloadAllZipBtn" class="download-btn" style="background: #ef4444; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem;">
+                            📦 Download All as ZIP
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 6px; border-left: 4px solid #3b82f6;">
+                    <p style="margin: 0; font-size: 0.9rem; color: #64748b;">
+                        <strong>Files will be named based on your action name:</strong><br>
+                        <span id="fileNamesPreview" style="font-family: monospace; color: #1e293b;">
+                            <!-- File names will be dynamically updated here -->
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="xlsx.full.min.js"></script>
+    <script src="view.js"></script>
+</body>
+</html>

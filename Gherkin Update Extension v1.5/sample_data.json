@@ -1,0 +1,40 @@
+{
+  "collectedGherkinSteps": [
+    "When Click On Login Button",
+    "When Enter Username \"<username>\"",
+    "When Select Organization \"<organization>\"",
+    "When Enter Date From \"<dateFrom>\"",
+    "When Enter Date To \"<dateTo>\"",
+    "When Select Multiple Courses \"<courses>\"",
+    "When Enter Excel File \"<excelFile>\"",
+    "When Upload Image \"<imageFile>\"",
+    "When Click On Search Button",
+    "When Select Dropdown Option \"<option>\""
+  ],
+  "collectedLocators": [
+    "public static By LoginButton => By.XPath(\"//button[@id='login']\");",
+    "public static By Username => By.XPath(\"//input[@id='username']\");",
+    "public static By Organization => By.XPath(\"//select[@id='organization']\");",
+    "public static By DateFrom => By.XPath(\"//input[@id='dateFrom']\");",
+    "public static By DateTo => By.XPath(\"//input[@id='dateTo']\");",
+    "public static By Courses => By.XPath(\"//select[@id='courses']\");",
+    "public static By ExcelFile => By.XPath(\"//input[@id='excelFile']\");",
+    "public static By ImageUpload => By.XPath(\"//input[@id='imageUpload']\");",
+    "public static By SearchButton => By.XPath(\"//button[@id='search']\");",
+    "public static By DropdownOption => By.XPath(\"//select[@id='dropdown']\");"
+  ],
+  "collectedMethods": [
+    "public IWebElement GetLoginButton() => driver.FindElement(ElementClass.LoginButton);",
+    "public IWebElement GetUsername() => driver.FindElement(ElementClass.Username);",
+    "public IWebElement GetOrganization() => driver.FindElement(ElementClass.Organization);",
+    "public IWebElement GetDateFrom() => driver.FindElement(ElementClass.DateFrom);",
+    "public IWebElement GetDateTo() => driver.FindElement(ElementClass.DateTo);",
+    "public IWebElement GetCourses() => driver.FindElement(ElementClass.Courses);",
+    "public IWebElement GetExcelFile() => driver.FindElement(ElementClass.ExcelFile);",
+    "public IWebElement GetImageUpload() => driver.FindElement(ElementClass.ImageUpload);",
+    "public IWebElement GetSearchButton() => driver.FindElement(ElementClass.SearchButton);",
+    "public IWebElement GetDropdownOption() => driver.FindElement(ElementClass.DropdownOption);"
+  ],
+  "elementClassName": "TestElementClass",
+  "pageClassName": "TestPage"
+}
