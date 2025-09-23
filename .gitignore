@@ -47,3 +47,6 @@ bld/
 *.tmp
 *.log
 *.orig
+
+# Demo and temporary files
+ui-demo.html

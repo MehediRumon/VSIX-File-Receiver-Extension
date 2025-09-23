@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comprehensive Folder Selection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 15px 0; padding: 15px; border: 2px solid #ddd; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .pending { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .results { margin-top: 10px; font-family: monospace; font-size: 12px; }
+        .form-section { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        input, textarea, select { margin: 5px; padding: 5px; }
+        h1 { color: #333; }
+        h3 { color: #666; margin-top: 0; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Folder Selection Feature - Comprehensive Test Suite</h1>
+    <p>This test validates the new folder selection functionality and ensures backward compatibility.</p>
+    
+    <div id="connection-status"></div>
+    
+    <div class="test-case pending" id="test1">
+        <h3>Test 1: Backward Compatibility - Legacy File Creation</h3>
+        <p>Test that files can still be created without specifying a folder (should go to project root).</p>
+        <button onclick="testLegacyFileCreation()">Run Legacy Test</button>
+        <div class="results" id="test1-results"></div>
+    </div>
+    
+    <div class="test-case pending" id="test2">
+        <h3>Test 2: Folder Structure Retrieval</h3>
+        <p>Test the new GET /folders endpoint to retrieve project folder structure.</p>
+        <button onclick="testFolderRetrieval()">Get Folder Structure</button>
+        <div class="results" id="test2-results"></div>
+        <select id="available-folders" style="width: 100%; margin-top: 10px; display: none;">
+            <option value="">Project Root</option>
+        </select>
+    </div>
+    
+    <div class="test-case pending" id="test3">
+        <h3>Test 3: Folder-Specific File Creation</h3>
+        <p>Test creating files in specific project folders.</p>
+        <div class="form-section">
+            <label>Target Folder:</label>
+            <select id="target-folder" style="width: 200px;">
+                <option value="">Project Root</option>
+            </select><br>
+            <label>File Name:</label>
+            <input type="text" id="folder-filename" value="TestFile.cs" style="width: 200px;"><br>
+            <label>Content:</label><br>
+            <textarea id="folder-content" style="width: 300px; height: 60px;">// Test file created in specific folder
+public class TestFile 
+{
+    // Auto-generated test file
+}</textarea>
+        </div>
+        <button onclick="testFolderFileCreation()">Create File in Selected Folder</button>
+        <div class="results" id="test3-results"></div>
+    </div>
+    
+    <div class="test-case pending" id="test4">
+        <h3>Test 4: Security Validation</h3>
+        <p>Test that directory traversal attacks are prevented.</p>
+        <button onclick="testSecurityValidation()">Test Security</button>
+        <div class="results" id="test4-results"></div>
+    </div>
+    
+    <div class="test-case pending" id="test5">
+        <h3>Test 5: End-to-End Workflow</h3>
+        <p>Complete workflow: Load folders → Select folder → Create file.</p>
+        <button onclick="testCompleteWorkflow()">Run Complete Workflow</button>
+        <div class="results" id="test5-results"></div>
+    </div>
+
+    <script>
+        // Check connection status
+        fetch('http://localhost:8080/', { method: 'OPTIONS' })
+            .then(() => {
+                document.getElementById('connection-status').innerHTML = 
+                    '<div style="background: #d4edda; padding: 10px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #c3e6cb;">' +
+                    '✅ <strong>Connected:</strong> Visual Studio File Receiver Extension is running on localhost:8080</div>';
+            })
+            .catch(() => {
+                document.getElementById('connection-status').innerHTML = 
+                    '<div style="background: #f8d7da; padding: 10px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #f5c6cb;">' +
+                    '❌ <strong>Disconnected:</strong> Visual Studio File Receiver Extension is not running. Please start Visual Studio with a solution loaded.</div>';
+            });
+
+        function updateTestStatus(testId, status, message) {
+            const testElement = document.getElementById(testId);
+            testElement.className = `test-case ${status}`;
+            document.getElementById(`${testId}-results`).innerHTML = message;
+        }
+
+        function testLegacyFileCreation() {
+            updateTestStatus('test1', 'pending', 'Testing legacy file creation...');
+            
+            const fileData = {
+                fileName: `legacy-test-${Date.now()}.txt`,
+                content: 'This file was created using the legacy API format (no folderPath specified).'
+            };
+
+            fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fileData)
+            })
+            .then(response => response.ok ? response.text() : Promise.reject(`HTTP ${response.status}`))
+            .then(data => {
+                updateTestStatus('test1', 'success', 
+                    `✅ SUCCESS: Legacy file creation works!<br>` +
+                    `📝 File: ${fileData.fileName}<br>` +
+                    `📁 Location: Project Root<br>` +
+                    `📊 Response: ${data}`);
+            })
+            .catch(error => {
+                updateTestStatus('test1', 'error', `❌ FAILED: ${error}`);
+            });
+        }
+
+        function testFolderRetrieval() {
+            updateTestStatus('test2', 'pending', 'Retrieving folder structure...');
+            
+            fetch('http://localhost:8080/folders')
+                .then(response => response.ok ? response.json() : Promise.reject(`HTTP ${response.status}`))
+                .then(data => {
+                    console.log('Folder data:', data);
+                    
+                    let message = `✅ SUCCESS: Retrieved ${data.folders ? data.folders.length : 0} folders<br><br>`;
+                    message += '<strong>Available Folders:</strong><br>';
+                    
+                    const folderSelect = document.getElementById('available-folders');
+                    const targetSelect = document.getElementById('target-folder');
+                    
+                    // Clear existing options
+                    folderSelect.innerHTML = '<option value="">Project Root</option>';
+                    targetSelect.innerHTML = '<option value="">Project Root</option>';
+                    
+                    if (data.folders && data.folders.length > 0) {
+                        data.folders.forEach(folder => {
+                            message += `📂 ${folder.name} (${folder.path || 'root'})<br>`;
+                            
+                            if (folder.path !== "") {
+                                const option1 = new Option(folder.name, folder.path);
+                                const option2 = new Option(folder.name, folder.path);
+                                folderSelect.add(option1);
+                                targetSelect.add(option2);
+                            }
+                        });
+                        
+                        folderSelect.style.display = 'block';
+                        message += `<br>📊 Folders loaded into dropdown selections`;
+                    } else {
+                        message += '⚠️ No subfolders found (only project root available)';
+                    }
+                    
+                    updateTestStatus('test2', 'success', message);
+                })
+                .catch(error => {
+                    updateTestStatus('test2', 'error', `❌ FAILED: ${error}`);
+                });
+        }
+
+        function testFolderFileCreation() {
+            const folderPath = document.getElementById('target-folder').value;
+            const fileName = document.getElementById('folder-filename').value;
+            const content = document.getElementById('folder-content').value;
+            
+            if (!fileName.trim()) {
+                updateTestStatus('test3', 'error', '❌ Please enter a file name');
+                return;
+            }
+            
+            updateTestStatus('test3', 'pending', 'Creating file in selected folder...');
+            
+            const fileData = {
+                fileName: fileName,
+                content: content
+            };
+            
+            if (folderPath && folderPath.trim() !== '') {
+                fileData.folderPath = folderPath.trim();
+            }
+            
+            const location = folderPath ? `${folderPath}/${fileName}` : fileName;
+            
+            fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fileData)
+            })
+            .then(response => response.ok ? response.text() : Promise.reject(`HTTP ${response.status}`))
+            .then(data => {
+                updateTestStatus('test3', 'success', 
+                    `✅ SUCCESS: File created in specific folder!<br>` +
+                    `📝 File: ${fileName}<br>` +
+                    `📁 Location: ${location}<br>` +
+                    `📊 Response: ${data}`);
+            })
+            .catch(error => {
+                updateTestStatus('test3', 'error', `❌ FAILED: ${error}`);
+            });
+        }
+
+        function testSecurityValidation() {
+            updateTestStatus('test4', 'pending', 'Testing security validation...');
+            
+            const maliciousPaths = [
+                '../../../etc/passwd',
+                '..\\\\..\\\\..\\\\windows\\\\system32',
+                '/etc/passwd',
+                'C:\\\\Windows\\\\System32',
+                '../outside-project'
+            ];
+            
+            let testIndex = 0;
+            let results = [];
+            
+            function testNext() {
+                if (testIndex >= maliciousPaths.length) {
+                    // All tests completed
+                    const allBlocked = results.every(r => r.blocked);
+                    if (allBlocked) {
+                        updateTestStatus('test4', 'success', 
+                            `✅ SUCCESS: All directory traversal attempts were blocked!<br><br>` +
+                            `🔒 Tested paths:<br>` +
+                            results.map(r => `• ${r.path} → ${r.blocked ? 'BLOCKED ✅' : 'ALLOWED ❌'}`).join('<br>')
+                        );
+                    } else {
+                        updateTestStatus('test4', 'error', 
+                            `❌ SECURITY VULNERABILITY: Some paths were not blocked!<br><br>` +
+                            results.map(r => `• ${r.path} → ${r.blocked ? 'BLOCKED ✅' : 'ALLOWED ❌'}`).join('<br>')
+                        );
+                    }
+                    return;
+                }
+                
+                const path = maliciousPaths[testIndex];
+                const fileData = {
+                    fileName: 'malicious-test.txt',
+                    content: 'This should be blocked',
+                    folderPath: path
+                };
+                
+                fetch('http://localhost:8080/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fileData)
+                })
+                .then(response => {
+                    // If status is 4xx or 5xx, the path was blocked (good)
+                    const blocked = !response.ok;
+                    results.push({ path: path, blocked: blocked });
+                    testIndex++;
+                    setTimeout(testNext, 100); // Small delay between tests
+                })
+                .catch(error => {
+                    // Network error also counts as blocked
+                    results.push({ path: path, blocked: true });
+                    testIndex++;
+                    setTimeout(testNext, 100);
+                });
+            }
+            
+            testNext();
+        }
+
+        function testCompleteWorkflow() {
+            updateTestStatus('test5', 'pending', 'Running complete workflow...');
+            
+            let workflowResults = [];
+            
+            // Step 1: Get folders
+            fetch('http://localhost:8080/folders')
+                .then(response => response.ok ? response.json() : Promise.reject(`Folder retrieval failed: HTTP ${response.status}`))
+                .then(data => {
+                    workflowResults.push(`✅ Step 1: Retrieved ${data.folders ? data.folders.length : 0} folders`);
+                    
+                    // Step 2: Select first available folder (or root if no folders)
+                    const targetFolder = (data.folders && data.folders.length > 1) ? data.folders[1] : null;
+                    const folderPath = targetFolder ? targetFolder.path : "";
+                    const folderName = targetFolder ? targetFolder.name : "Project Root";
+                    
+                    workflowResults.push(`✅ Step 2: Selected folder: ${folderName}`);
+                    
+                    // Step 3: Create file
+                    const fileData = {
+                        fileName: `workflow-test-${Date.now()}.cs`,
+                        content: `// Complete workflow test file\n// Created in: ${folderName}\npublic class WorkflowTest\n{\n    // Success!\n}`
+                    };
+                    
+                    if (folderPath) {
+                        fileData.folderPath = folderPath;
+                    }
+                    
+                    return fetch('http://localhost:8080/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(fileData)
+                    }).then(response => {
+                        if (response.ok) {
+                            return response.text().then(text => ({
+                                fileName: fileData.fileName,
+                                folderName: folderName,
+                                response: text
+                            }));
+                        } else {
+                            throw new Error(`File creation failed: HTTP ${response.status}`);
+                        }
+                    });
+                })
+                .then(result => {
+                    workflowResults.push(`✅ Step 3: Created file '${result.fileName}' in '${result.folderName}'`);
+                    
+                    updateTestStatus('test5', 'success', 
+                        `🎉 COMPLETE WORKFLOW SUCCESS!<br><br>` +
+                        workflowResults.join('<br>') +
+                        `<br><br>📊 Server Response: ${result.response}`
+                    );
+                })
+                .catch(error => {
+                    workflowResults.push(`❌ FAILED: ${error.message}`);
+                    updateTestStatus('test5', 'error', workflowResults.join('<br>'));
+                });
+        }
+    </script>
+</body>
+</html>
