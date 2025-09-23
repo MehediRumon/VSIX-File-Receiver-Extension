@@ -261,35 +261,78 @@ namespace FileReceiverExtension
                 await LogAsync($"Solution is open: {_dte.Solution.FileName}");
                 await LogAsync($"Solution has {_dte.Solution.Projects?.Count ?? 0} projects");
 
-                // Get the active project with enhanced debugging
-                var project = GetActiveProject();
-                if (project == null)
+                // Check if project parameter is provided in query string
+                string projectDirectory = request.QueryString["project"];
+                string projectDir = null;
+                Project project = null;
+
+                if (!string.IsNullOrEmpty(projectDirectory))
                 {
-                    await LogAsync("ERROR: No active project found after exhaustive search");
-                    await LogAsync("TROUBLESHOOTING TIPS:");
-                    await LogAsync("1. Make sure you have a project file (.csproj, .vbproj, etc.) open");
-                    await LogAsync("2. Try selecting a project in Solution Explorer");
-                    await LogAsync("3. Try opening a file from the project you want to use");
-                    await LogAsync("4. Check if your project is properly loaded (not unloaded)");
+                    await LogAsync($"Using specified project directory: {projectDirectory}");
                     
-                    response.StatusCode = 404;
-                    await WriteResponseAsync(response, "{\"error\":\"No active project found. Please select a project in Solution Explorer or open a file from your project.\"}");
-                    return;
+                    // Find the project by directory
+                    if (_dte?.Solution?.Projects != null)
+                    {
+                        foreach (Project proj in _dte.Solution.Projects)
+                        {
+                            try
+                            {
+                                var projDir = Path.GetDirectoryName(proj.FullName);
+                                if (string.Equals(projDir, projectDirectory, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    project = proj;
+                                    projectDir = projDir;
+                                    await LogAsync($"Found matching project: {proj.Name}");
+                                    break;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                await LogAsync($"Error checking project {proj?.Name}: {ex.Message}");
+                            }
+                        }
+                    }
+
+                    if (project == null)
+                    {
+                        await LogAsync($"Could not find project with directory: {projectDirectory}");
+                        response.StatusCode = 404;
+                        await WriteResponseAsync(response, "{\"error\":\"Project not found with specified directory\"}");
+                        return;
+                    }
                 }
-
-                await LogAsync($"SUCCESS: Found active project: {project.Name}");
-                await LogAsync($"Project full name: {project.FullName}");
-
-                // Get project directory
-                var projectDir = Path.GetDirectoryName(project.FullName);
-                if (string.IsNullOrEmpty(projectDir))
+                else
                 {
-                    await LogAsync($"ERROR: Could not determine project directory from: {project.FullName}");
-                    response.StatusCode = 500;
-                    await WriteResponseAsync(response, "{\"error\":\"Could not determine project directory\"}");
-                    return;
+                    // Fallback to active project if no project specified
+                    await LogAsync("No project parameter provided, using active project");
+                    project = GetActiveProject();
+                    if (project == null)
+                    {
+                        await LogAsync("ERROR: No active project found after exhaustive search");
+                        await LogAsync("TROUBLESHOOTING TIPS:");
+                        await LogAsync("1. Make sure you have a project file (.csproj, .vbproj, etc.) open");
+                        await LogAsync("2. Try selecting a project in Solution Explorer");
+                        await LogAsync("3. Try opening a file from the project you want to use");
+                        await LogAsync("4. Check if your project is properly loaded (not unloaded)");
+                        
+                        response.StatusCode = 404;
+                        await WriteResponseAsync(response, "{\"error\":\"No active project found. Please select a project in Solution Explorer or open a file from your project.\"}");
+                        return;
+                    }
+
+                    // Get project directory
+                    projectDir = Path.GetDirectoryName(project.FullName);
+                    if (string.IsNullOrEmpty(projectDir))
+                    {
+                        await LogAsync($"ERROR: Could not determine project directory from: {project.FullName}");
+                        response.StatusCode = 500;
+                        await WriteResponseAsync(response, "{\"error\":\"Could not determine project directory\"}");
+                        return;
+                    }
                 }
 
+                await LogAsync($"SUCCESS: Found project: {project.Name}");
+                await LogAsync($"Project full name: {project.FullName}");
                 await LogAsync($"Project directory: {projectDir}");
 
                 // Verify directory exists
@@ -308,7 +351,7 @@ namespace FileReceiverExtension
                 response.StatusCode = 200;
                 response.ContentType = "application/json";
                 await WriteResponseAsync(response, jsonResponse);
-                await LogAsync($"SUCCESS: Sent folder structure with {folders.Count} folders");
+                await LogAsync($"SUCCESS: Sent folder structure with {folders.Count} folders for project {project.Name}");
                 await LogAsync("=== FOLDER REQUEST COMPLETE ===");
             }
             catch (Exception ex)
@@ -343,7 +386,7 @@ namespace FileReceiverExtension
                 await LogAsync($"Solution has {_dte.Solution.Projects?.Count ?? 0} projects");
 
                 // Get all projects
-                var projects = GetAllProjects();
+                var projects = await GetAllProjectsAsync();
                 if (projects.Count == 0)
                 {
                     await LogAsync("ERROR: No projects found in solution");
@@ -885,23 +928,28 @@ namespace FileReceiverExtension
             return null;
         }
 
-        private List<ProjectInfo> GetAllProjects()
+        private async Task<List<ProjectInfo>> GetAllProjectsAsync()
         {
             var projects = new List<ProjectInfo>();
             
             try
             {
-                ThreadHelper.ThrowIfNotOnUIThread();
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 if (_dte?.Solution?.Projects != null)
                 {
+                    await LogAsync($"Solution loaded, scanning {_dte.Solution.Projects.Count} items...");
+                    
                     foreach (Project project in _dte.Solution.Projects)
                     {
                         try
                         {
                             // Skip solution folders and other non-project types  
                             if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}") // Solution Folder GUID
+                            {
+                                await LogAsync($"Skipping solution folder: {project.Name}");
                                 continue;
+                            }
 
                             var projectDir = Path.GetDirectoryName(project.FullName);
                             if (!string.IsNullOrEmpty(projectDir) && Directory.Exists(projectDir))
@@ -913,21 +961,30 @@ namespace FileReceiverExtension
                                     Directory = projectDir,
                                     Kind = project.Kind
                                 });
-                                LogAsync($"Added project: {project.Name} at {projectDir}").ConfigureAwait(false);
+                                await LogAsync($"Added project: {project.Name} at {projectDir}");
+                            }
+                            else
+                            {
+                                await LogAsync($"Skipping project {project.Name}: Invalid or non-existent directory");
                             }
                         }
                         catch (Exception ex)
                         {
-                            LogAsync($"Error processing project {project?.Name}: {ex.Message}").ConfigureAwait(false);
+                            await LogAsync($"Error processing project {project?.Name}: {ex.Message}");
                         }
                     }
+                }
+                else
+                {
+                    await LogAsync("No solution or projects found");
                 }
             }
             catch (Exception ex)
             {
-                LogAsync($"Error getting all projects: {ex.Message}").ConfigureAwait(false);
+                await LogAsync($"Error getting all projects: {ex.Message}");
             }
 
+            await LogAsync($"Project detection complete: Found {projects.Count} projects");
             return projects;
         }
 

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Project and Folder Integration</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #2d3748;
+            border-bottom: 2px solid #4299e1;
+            padding-bottom: 8px;
+        }
+        button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #3182ce;
+        }
+        button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+        select, input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .result {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: Monaco, 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .success { border-color: #68d391; background: #f0fff4; }
+        .error { border-color: #fc8181; background: #fff5f5; }
+        .warning { border-color: #f6e05e; background: #fffff0; }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Project and Folder Integration</h1>
+    <p>This page tests the enhanced project and folder selection functionality that allows project-specific folder loading.</p>
+
+    <div class="test-section">
+        <h2>Step 1: Load Projects</h2>
+        <button onclick="testGetProjects()">Load Projects from VS</button>
+        <div id="projects-result" class="result" style="display: none;"></div>
+        <label for="project-select">Select Project:</label>
+        <select id="project-select">
+            <option value="">Select a project...</option>
+        </select>
+    </div>
+
+    <div class="test-section">
+        <h2>Step 2: Load Folders for Selected Project</h2>
+        <button onclick="testGetFolders()" id="folders-btn" disabled>Load Folders for Selected Project</button>
+        <div id="folders-result" class="result" style="display: none;"></div>
+        <label for="folder-select">Select Folder:</label>
+        <select id="folder-select" disabled>
+            <option value="">Select project first...</option>
+        </select>
+    </div>
+
+    <div class="test-section">
+        <h2>Step 3: Send Test File to Selected Project and Folder</h2>
+        <label for="filename">Filename:</label>
+        <input type="text" id="filename" value="TestIntegration.cs" placeholder="Enter filename">
+        
+        <label for="content">File Content:</label>
+        <textarea id="content" rows="8" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+// Test file for project and folder integration
+using System;
+
+namespace TestNamespace
+{
+    public class TestIntegration
+    {
+        // Generated at: ${new Date().toISOString()}
+        public void TestMethod()
+        {
+            Console.WriteLine("Project and folder integration test successful!");
+        }
+    }
+}
+        </textarea>
+        
+        <button onclick="testSendFile()" id="send-btn" disabled>Send File to Selected Project/Folder</button>
+        <div id="send-result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Track the current state
+        let selectedProject = '';
+        let selectedFolder = '';
+        
+        // Setup event handlers
+        document.getElementById('project-select').addEventListener('change', onProjectChange);
+        document.getElementById('folder-select').addEventListener('change', onFolderChange);
+
+        function onProjectChange() {
+            const projectSelect = document.getElementById('project-select');
+            const foldersBtn = document.getElementById('folders-btn');
+            const folderSelect = document.getElementById('folder-select');
+            const sendBtn = document.getElementById('send-btn');
+            
+            selectedProject = projectSelect.value;
+            
+            if (selectedProject) {
+                foldersBtn.disabled = false;
+                folderSelect.disabled = false;
+                folderSelect.innerHTML = '<option value="">Project Root</option>';
+                
+                // Auto-load folders when project is selected
+                testGetFolders();
+            } else {
+                foldersBtn.disabled = true;
+                folderSelect.disabled = true;
+                sendBtn.disabled = true;
+                folderSelect.innerHTML = '<option value="">Select project first...</option>';
+                selectedFolder = '';
+            }
+        }
+
+        function onFolderChange() {
+            const folderSelect = document.getElementById('folder-select');
+            const sendBtn = document.getElementById('send-btn');
+            
+            selectedFolder = folderSelect.value;
+            sendBtn.disabled = !selectedProject; // Enable if we have a project selected
+        }
+
+        function testGetProjects() {
+            const resultDiv = document.getElementById('projects-result');
+            const projectSelect = document.getElementById('project-select');
+            
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Loading projects...';
+            resultDiv.className = 'result';
+            
+            fetch('http://localhost:8080/projects')
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    console.log('Projects response:', data);
+                    
+                    // Clear existing options
+                    projectSelect.innerHTML = '<option value="">Select a project...</option>';
+                    
+                    let resultText = `✅ Success! Found ${data.projects ? data.projects.length : 0} projects:\n\n`;
+                    
+                    if (data.projects && data.projects.length > 0) {
+                        data.projects.forEach((project, index) => {
+                            resultText += `${index + 1}. ${project.name}\n`;
+                            resultText += `   Directory: ${project.directory}\n`;
+                            resultText += `   Full Name: ${project.fullName}\n\n`;
+                            
+                            // Add to select dropdown
+                            const option = document.createElement('option');
+                            option.value = project.directory;
+                            option.textContent = project.name;
+                            option.dataset.fullName = project.fullName;
+                            projectSelect.appendChild(option);
+                        });
+                    } else {
+                        resultText += 'No projects found in solution.';
+                    }
+                    
+                    resultDiv.textContent = resultText;
+                    resultDiv.className = 'result success';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    resultDiv.textContent = `❌ Error: ${error.message}\n\nMake sure:\n1. Visual Studio is running\n2. The VSIX extension is loaded\n3. A solution is open in Visual Studio`;
+                    resultDiv.className = 'result error';
+                });
+        }
+
+        function testGetFolders() {
+            const resultDiv = document.getElementById('folders-result');
+            const folderSelect = document.getElementById('folder-select');
+            
+            if (!selectedProject) {
+                alert('Please select a project first');
+                return;
+            }
+            
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Loading folders...';
+            resultDiv.className = 'result';
+            
+            // Build URL with project parameter
+            const url = `http://localhost:8080/folders?project=${encodeURIComponent(selectedProject)}`;
+            
+            fetch(url)
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    console.log('Folders response:', data);
+                    
+                    // Clear existing options except root
+                    folderSelect.innerHTML = '<option value="">Project Root</option>';
+                    
+                    let resultText = `✅ Success! Found ${data.folders ? data.folders.length : 0} folders:\n\n`;
+                    
+                    if (data.folders && data.folders.length > 0) {
+                        data.folders.forEach((folder, index) => {
+                            resultText += `${index + 1}. ${folder.name}\n`;
+                            resultText += `   Path: ${folder.path || 'root'}\n`;
+                            if (folder.fullPath) {
+                                resultText += `   Full Path: ${folder.fullPath}\n`;
+                            }
+                            resultText += '\n';
+                            
+                            // Add to select dropdown (skip root since we already have it)
+                            if (folder.path !== "") {
+                                const option = document.createElement('option');
+                                option.value = folder.path;
+                                option.textContent = folder.name;
+                                folderSelect.appendChild(option);
+                            }
+                        });
+                    } else {
+                        resultText += 'No folders found in project.';
+                    }
+                    
+                    resultDiv.textContent = resultText;
+                    resultDiv.className = 'result success';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    resultDiv.textContent = `❌ Error: ${error.message}\n\nMake sure:\n1. Visual Studio is running\n2. The selected project exists\n3. The project directory is accessible`;
+                    resultDiv.className = 'result error';
+                });
+        }
+
+        function testSendFile() {
+            const resultDiv = document.getElementById('send-result');
+            const filename = document.getElementById('filename').value;
+            const content = document.getElementById('content').value;
+            
+            if (!selectedProject) {
+                alert('Please select a project first');
+                return;
+            }
+            
+            if (!filename.trim()) {
+                alert('Please enter a filename');
+                return;
+            }
+            
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Sending file...';
+            resultDiv.className = 'result';
+            
+            const fileData = {
+                fileName: filename,
+                content: content.replace('${new Date().toISOString()}', new Date().toISOString()),
+                projectDirectory: selectedProject
+            };
+            
+            if (selectedFolder && selectedFolder.trim() !== '') {
+                fileData.folderPath = selectedFolder.trim();
+            }
+            
+            fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(fileData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .then(responseText => {
+                let resultText = `✅ Success! File sent to Visual Studio\n\n`;
+                resultText += `Project: ${selectedProject}\n`;
+                resultText += `Folder: ${selectedFolder || 'Project Root'}\n`;
+                resultText += `Filename: ${filename}\n`;
+                resultText += `Response: ${responseText}`;
+                
+                resultDiv.textContent = resultText;
+                resultDiv.className = 'result success';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultDiv.textContent = `❌ Error: ${error.message}\n\nFailed to send file to Visual Studio`;
+                resultDiv.className = 'result error';
+            });
+        }
+    </script>
+</body>
+</html>
