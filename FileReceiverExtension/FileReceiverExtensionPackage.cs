@@ -6,6 +6,7 @@ using System.Threading;
 using EnvDTE;
 using EnvDTE80;
 using Task = System.Threading.Tasks.Task;
+using Microsoft.VisualStudio;
 
 namespace FileReceiverExtension
 {
