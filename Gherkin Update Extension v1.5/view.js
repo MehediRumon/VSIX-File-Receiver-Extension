@@ -1844,6 +1844,7 @@ function onProjectSelectionChange() {
     const projectSelect = document.getElementById('projectSelect');
     const folderSelect = document.getElementById('folderSelect');
     const loadFoldersBtn = document.getElementById('loadFoldersBtn');
+    const folderStatusDiv = document.getElementById('folderStatus');
     
     if (projectSelect.value) {
         loadFoldersBtn.disabled = false;
@@ -1856,11 +1857,16 @@ function onProjectSelectionChange() {
         loadFoldersBtn.disabled = true;
         folderSelect.disabled = true;
         folderSelect.innerHTML = '<option value="">Select project first...</option>';
+        
+        // Clear folder status when no project is selected
+        if (folderStatusDiv) {
+            folderStatusDiv.innerHTML = '';
+        }
     }
 }
 
 function loadFolders() {
-    const statusDiv = document.getElementById('projectStatus');
+    const statusDiv = document.getElementById('folderStatus');
     const folderSelect = document.getElementById('folderSelect');
     const projectSelect = document.getElementById('projectSelect');
     
