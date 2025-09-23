@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Fixed Base64 Detection</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        button { padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Test Fixed Base64 Detection - File Receiver Extension</h1>
+    <p>This page tests the fixed base64 detection in the Visual Studio File Receiver Extension.</p>
+    
+    <div id="status"></div>
+    
+    <h2>Test Cases</h2>
+    
+    <div class="test-case">
+        <h3>Test 1: Simple Text (should NOT be treated as base64)</h3>
+        <button onclick="testCase('test1.txt', 'test')">Send "test" as content</button>
+        <div id="result1"></div>
+    </div>
+    
+    <div class="test-case">
+        <h3>Test 2: Simple Text 2 (should NOT be treated as base64)</h3>
+        <button onclick="testCase('test2.txt', 'abcd')">Send "abcd" as content</button>
+        <div id="result2"></div>
+    </div>
+    
+    <div class="test-case">
+        <h3>Test 3: Normal Text Content</h3>
+        <button onclick="testCase('hello.txt', 'Hello World!')">Send "Hello World!" as content</button>
+        <div id="result3"></div>
+    </div>
+    
+    <div class="test-case">
+        <h3>Test 4: Code Content with Special Characters</h3>
+        <button onclick="testCase('script.js', 'function test() {\n    console.log(\"Hello\");\n    return \"value\";\n}')">Send JavaScript code</button>
+        <div id="result4"></div>
+    </div>
+    
+    <div class="test-case">
+        <h3>Test 5: Actual Base64 Content (should be decoded)</h3>
+        <button onclick="testCase('encoded.txt', 'SGVsbG8gV29ybGQh')">Send base64 "SGVsbG8gV29ybGQh" (should decode to "Hello World!")</button>
+        <div id="result5"></div>
+    </div>
+
+    <script>
+        function testCase(fileName, content) {
+            const fileData = {
+                fileName: fileName,
+                content: content
+            };
+
+            console.log(`Testing: fileName="${fileName}", content="${content}"`);
+
+            fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(fileData)
+            })
+            .then(response => {
+                console.log(`Response status: ${response.status}`);
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .then(data => {
+                console.log(`Success: ${data}`);
+                showResult(fileName, 'success', `✓ SUCCESS: ${data}`);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showResult(fileName, 'error', `✗ ERROR: ${error.message}`);
+            });
+        }
+
+        function showResult(fileName, type, message) {
+            const testNumber = fileName.includes('test1') ? '1' : 
+                              fileName.includes('test2') ? '2' :
+                              fileName.includes('hello') ? '3' :
+                              fileName.includes('script') ? '4' : '5';
+            
+            const resultDiv = document.getElementById(`result${testNumber}`);
+            resultDiv.className = type;
+            resultDiv.textContent = message;
+        }
+
+        // Check if server is running
+        fetch('http://localhost:8080/', { method: 'OPTIONS' })
+            .then(() => {
+                document.getElementById('status').innerHTML = '<p style="color: green;">✓ Visual Studio File Receiver Extension is running</p>';
+            })
+            .catch(() => {
+                document.getElementById('status').innerHTML = '<p style="color: red;">✗ Visual Studio File Receiver Extension is not running. Please start Visual Studio with the extension installed.</p>';
+            });
+    </script>
+</body>
+</html>
