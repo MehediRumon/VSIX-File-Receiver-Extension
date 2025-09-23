@@ -1595,6 +1595,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('downloadFeatureBtn')?.addEventListener('click', () => downloadFeatureFile());
     document.getElementById('downloadAllIndividualBtn')?.addEventListener('click', () => downloadAllIndividual());
     document.getElementById('downloadAllZipBtn')?.addEventListener('click', () => downloadAllAsZip());
+    document.getElementById('sendToVisualStudioBtn')?.addEventListener('click', () => sendAllToVisualStudio());
+    
+    // Project and folder selection buttons
+    document.getElementById('loadProjectsBtn')?.addEventListener('click', () => loadProjects());
+    document.getElementById('loadFoldersBtn')?.addEventListener('click', () => loadFolders());
+    document.getElementById('projectSelect')?.addEventListener('change', () => onProjectSelectionChange());
 });
 
 function updateFileNamesPreview() {
@@ -1770,4 +1776,224 @@ function downloadFile(filename, content) {
     window.URL.revokeObjectURL(url);
     
     showToast(`📄 ${filename} downloaded!`, 'success');
+}
+
+// Project and folder selection functionality
+function loadProjects() {
+    const statusDiv = document.getElementById('projectStatus');
+    const projectSelect = document.getElementById('projectSelect');
+    
+    statusDiv.innerHTML = '<span style="color: #6366f1;">🔄 Loading projects...</span>';
+    
+    fetch('http://localhost:8080/projects')
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        })
+        .then(data => {
+            projectSelect.innerHTML = '<option value="">Select a project...</option>';
+            
+            if (data.projects && data.projects.length > 0) {
+                data.projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.directory;
+                    option.textContent = project.name;
+                    option.dataset.fullName = project.fullName;
+                    projectSelect.appendChild(option);
+                });
+                
+                statusDiv.innerHTML = `<span style="color: #10b981;">✅ Loaded ${data.projects.length} projects</span>`;
+                showToast(`Loaded ${data.projects.length} projects`, 'success');
+            } else {
+                statusDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ No projects found</span>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading projects:', error);
+            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${error.message}</span>`;
+            showToast('Error loading projects. Make sure Visual Studio is running with the extension.', 'error');
+        });
+}
+
+function onProjectSelectionChange() {
+    const projectSelect = document.getElementById('projectSelect');
+    const folderSelect = document.getElementById('folderSelect');
+    const loadFoldersBtn = document.getElementById('loadFoldersBtn');
+    
+    if (projectSelect.value) {
+        loadFoldersBtn.disabled = false;
+        folderSelect.disabled = false;
+        folderSelect.innerHTML = '<option value="">Project Root</option>';
+        
+        // Auto-load folders when project is selected
+        loadFolders();
+    } else {
+        loadFoldersBtn.disabled = true;
+        folderSelect.disabled = true;
+        folderSelect.innerHTML = '<option value="">Select project first...</option>';
+    }
+}
+
+function loadFolders() {
+    const statusDiv = document.getElementById('projectStatus');
+    const folderSelect = document.getElementById('folderSelect');
+    
+    // For now, use the existing folders API which works with active project
+    // In a full implementation, we'd modify the API to accept project parameter
+    statusDiv.innerHTML = '<span style="color: #059669;">🔄 Loading folders...</span>';
+    
+    fetch('http://localhost:8080/folders')
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        })
+        .then(data => {
+            folderSelect.innerHTML = '<option value="">Project Root</option>';
+            
+            if (data.folders && data.folders.length > 0) {
+                data.folders.forEach(folder => {
+                    if (folder.path !== "") { // Skip the root folder since we already have it
+                        const option = document.createElement('option');
+                        option.value = folder.path;
+                        option.textContent = folder.name;
+                        folderSelect.appendChild(option);
+                    }
+                });
+                
+                statusDiv.innerHTML = `<span style="color: #10b981;">✅ Loaded folders for selected project</span>`;
+            } else {
+                statusDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ No folders found in project</span>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading folders:', error);
+            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${error.message}</span>`;
+            showToast('Error loading folders. Make sure Visual Studio is running.', 'error');
+        });
+}
+
+function sendFileToVisualStudio(filename, content, folderPath = null, projectDirectory = null) {
+    const fileData = {
+        fileName: filename,
+        content: content
+    };
+    
+    if (folderPath && folderPath.trim() !== '') {
+        fileData.folderPath = folderPath.trim();
+    }
+    
+    if (projectDirectory && projectDirectory.trim() !== '') {
+        fileData.projectDirectory = projectDirectory.trim();
+    }
+    
+    return fetch('http://localhost:8080/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fileData)
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.text();
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    });
+}
+
+function sendAllToVisualStudio() {
+    const projectSelect = document.getElementById('projectSelect');
+    const folderSelect = document.getElementById('folderSelect');
+    const statusDiv = document.getElementById('projectStatus');
+    
+    const selectedProject = projectSelect.value;
+    const selectedFolder = folderSelect.value;
+    
+    if (!selectedProject) {
+        showToast('Please select a project first', 'error');
+        return;
+    }
+    
+    statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending files to Visual Studio...</span>';
+    
+    getStoredData((result) => {
+        const actionName = result.actionName || 'Default';
+        const menuName = result.menuName || actionName;
+        const cleanActionName = actionName.replace(/\s+/g, '');
+        
+        // Create the files content
+        const files = {};
+        
+        // Element file
+        const locators = filterDuplicateLocators(result.collectedLocators || []);
+        const elementClassName = `${cleanActionName}Element`;
+        files[`${elementClassName}.cs`] = locators.length
+            ? `public static class ${elementClassName} {\n${locators.map(l => '    ' + l).join('\n')}\n}`
+            : `public static class ${elementClassName} {\n    // No locators collected\n}`;
+        
+        // Page file
+        const methods = filterDuplicateStrings(result.collectedMethods || []);
+        const pageClassName = `${cleanActionName}Page`;
+        files[`${pageClassName}.cs`] = methods.length
+            ? `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '    ' + m).join('\n')}\n}`
+            : `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n    // No methods collected\n}`;
+        
+        // Step file
+        const stepFileCode = document.getElementById('stepFileCode');
+        if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
+            files[`${cleanActionName}Step.cs`] = stepFileCode.textContent;
+        } else {
+            files[`${cleanActionName}Step.cs`] = `// Please generate step file first`;
+        }
+        
+        // Feature file
+        const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
+        files[`${cleanActionName}.feature`] = gherkinSteps.length
+            ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
+            : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
+        
+        // Send files one by one
+        const fileNames = Object.keys(files);
+        let fileIndex = 0;
+        let successCount = 0;
+        let errorCount = 0;
+        
+        const sendNext = () => {
+            if (fileIndex < fileNames.length) {
+                const fileName = fileNames[fileIndex];
+                const fileContent = files[fileName];
+                
+                sendFileToVisualStudio(fileName, fileContent, selectedFolder, selectedProject)
+                    .then(() => {
+                        successCount++;
+                        fileIndex++;
+                        sendNext();
+                    })
+                    .catch(error => {
+                        console.error(`Error sending ${fileName}:`, error);
+                        errorCount++;
+                        fileIndex++;
+                        sendNext();
+                    });
+            } else {
+                // All files processed
+                if (errorCount === 0) {
+                    statusDiv.innerHTML = `<span style="color: #10b981;">✅ Successfully sent ${successCount} files to Visual Studio!</span>`;
+                    showToast(`🚀 Successfully sent ${successCount} files to Visual Studio!`, 'success');
+                } else {
+                    statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Sent ${successCount} files, ${errorCount} failed</span>`;
+                    showToast(`Sent ${successCount} files, ${errorCount} failed`, 'warning');
+                }
+            }
+        };
+        
+        sendNext();
+    });
 }

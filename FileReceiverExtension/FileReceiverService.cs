@@ -158,6 +158,11 @@ namespace FileReceiverExtension
                     await LogAsync("Processing GET request for folder structure");
                     await HandleGetFoldersAsync(request, response);
                 }
+                else if (request.HttpMethod == "GET" && request.Url.AbsolutePath == "/projects")
+                {
+                    await LogAsync("Processing GET request for project list");
+                    await HandleGetProjectsAsync(request, response);
+                }
                 else
                 {
                     await LogAsync($"Method {request.HttpMethod} not allowed");
@@ -209,8 +214,8 @@ namespace FileReceiverExtension
                     return;
                 }
 
-                // Add file to active project
-                var success = await AddFileToProjectAsync(fileData.FileName, fileData.Content, fileData.FolderPath);
+                // Add file to project (active project or specified project)
+                var success = await AddFileToProjectAsync(fileData.FileName, fileData.Content, fileData.FolderPath, fileData.ProjectDirectory);
                 
                 if (success)
                 {
@@ -309,6 +314,55 @@ namespace FileReceiverExtension
             catch (Exception ex)
             {
                 await LogAsync($"ERROR in HandleGetFoldersAsync: {ex.Message}");
+                await LogAsync($"Stack trace: {ex.StackTrace}");
+                response.StatusCode = 500;
+                await WriteResponseAsync(response, "{\"error\":\"Internal server error\"}");
+            }
+        }
+
+        private async Task HandleGetProjectsAsync(HttpListenerRequest request, HttpListenerResponse response)
+        {
+            try
+            {
+                await LogAsync("=== PROJECT LIST REQUEST DEBUG ===");
+                await LogAsync("Processing GET request for project list");
+
+                // Ensure we're on the UI thread for DTE operations
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                // Check if solution is open
+                if (_dte?.Solution == null || !_dte.Solution.IsOpen)
+                {
+                    await LogAsync("ERROR: No solution is currently open in Visual Studio");
+                    response.StatusCode = 404;
+                    await WriteResponseAsync(response, "{\"error\":\"No solution is open\"}");
+                    return;
+                }
+
+                await LogAsync($"Solution is open: {_dte.Solution.FileName}");
+                await LogAsync($"Solution has {_dte.Solution.Projects?.Count ?? 0} projects");
+
+                // Get all projects
+                var projects = GetAllProjects();
+                if (projects.Count == 0)
+                {
+                    await LogAsync("ERROR: No projects found in solution");
+                    response.StatusCode = 404;
+                    await WriteResponseAsync(response, "{\"error\":\"No projects found in solution\"}");
+                    return;
+                }
+
+                var jsonResponse = CreateProjectsJson(projects);
+
+                response.StatusCode = 200;
+                response.ContentType = "application/json";
+                await WriteResponseAsync(response, jsonResponse);
+                await LogAsync($"SUCCESS: Sent project list with {projects.Count} projects");
+                await LogAsync("=== PROJECT LIST REQUEST COMPLETE ===");
+            }
+            catch (Exception ex)
+            {
+                await LogAsync($"ERROR in HandleGetProjectsAsync: {ex.Message}");
                 await LogAsync($"Stack trace: {ex.StackTrace}");
                 response.StatusCode = 500;
                 await WriteResponseAsync(response, "{\"error\":\"Internal server error\"}");
@@ -428,6 +482,14 @@ namespace FileReceiverExtension
             public string FullPath { get; set; }
         }
 
+        private class ProjectInfo
+        {
+            public string Name { get; set; }
+            public string FullName { get; set; }
+            public string Directory { get; set; }
+            public string Kind { get; set; }
+        }
+
         private async Task<FileData> ParseFileDataAsync(string json)
         {
             try
@@ -438,6 +500,7 @@ namespace FileReceiverExtension
                 string fileName = null;
                 string content = null;
                 string folderPath = null;
+                string projectDirectory = null;
 
                 // Extract fileName using regex pattern that handles both formats
                 var fileNameMatch = Regex.Match(json, @"""fileName""\s*:\s*""([^""]*?)""");
@@ -464,10 +527,23 @@ namespace FileReceiverExtension
                     folderPath = folderPath.Replace("\\\\", "\\").Replace("\\/", "/");
                 }
 
+                // Extract optional projectDirectory
+                var projectMatch = Regex.Match(json, @"""projectDirectory""\s*:\s*""([^""]*?)""");
+                if (projectMatch.Success)
+                {
+                    projectDirectory = projectMatch.Groups[1].Value;
+                    // Unescape project directory path
+                    projectDirectory = projectDirectory.Replace("\\\\", "\\").Replace("\\/", "/");
+                }
+
                 if (!string.IsNullOrEmpty(fileName) && content != null)
                 {
-                    await LogAsync($"Successfully parsed file: {fileName}" + 
-                                  (string.IsNullOrEmpty(folderPath) ? "" : $" in folder: {folderPath}"));
+                    var logMessage = $"Successfully parsed file: {fileName}";
+                    if (!string.IsNullOrEmpty(folderPath))
+                        logMessage += $" in folder: {folderPath}";
+                    if (!string.IsNullOrEmpty(projectDirectory))
+                        logMessage += $" for project: {projectDirectory}";
+                    await LogAsync(logMessage);
                     
                     // Decode content if it's base64 encoded
                     if (IsBase64String(content))
@@ -476,7 +552,7 @@ namespace FileReceiverExtension
                         content = Encoding.UTF8.GetString(Convert.FromBase64String(content));
                     }
                     
-                    return new FileData { FileName = fileName, Content = content, FolderPath = folderPath };
+                    return new FileData { FileName = fileName, Content = content, FolderPath = folderPath, ProjectDirectory = projectDirectory };
                 }
                 else
                 {
@@ -568,26 +644,66 @@ namespace FileReceiverExtension
             }
         }
 
-        private async Task<bool> AddFileToProjectAsync(string fileName, string content, string folderPath = null)
+        private async Task<bool> AddFileToProjectAsync(string fileName, string content, string folderPath = null, string specificProjectDirectory = null)
         {
             try
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-                // Get the active project
-                var project = GetActiveProject();
-                if (project == null)
-                {
-                    await LogAsync("No active project found");
-                    return false;
-                }
+                Project project = null;
+                string projectDir = null;
 
-                // Get project directory
-                var projectDir = Path.GetDirectoryName(project.FullName);
-                if (string.IsNullOrEmpty(projectDir))
+                // Use specific project directory if provided, otherwise fallback to active project
+                if (!string.IsNullOrEmpty(specificProjectDirectory))
                 {
-                    await LogAsync("Could not determine project directory");
-                    return false;
+                    await LogAsync($"Using specified project directory: {specificProjectDirectory}");
+                    
+                    // Find the project by directory
+                    if (_dte?.Solution?.Projects != null)
+                    {
+                        foreach (Project proj in _dte.Solution.Projects)
+                        {
+                            try
+                            {
+                                var projDir = Path.GetDirectoryName(proj.FullName);
+                                if (string.Equals(projDir, specificProjectDirectory, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    project = proj;
+                                    projectDir = projDir;
+                                    await LogAsync($"Found matching project: {proj.Name}");
+                                    break;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                await LogAsync($"Error checking project {proj?.Name}: {ex.Message}");
+                            }
+                        }
+                    }
+
+                    if (project == null)
+                    {
+                        await LogAsync($"Could not find project with directory: {specificProjectDirectory}");
+                        return false;
+                    }
+                }
+                else
+                {
+                    // Get the active project (fallback behavior)
+                    project = GetActiveProject();
+                    if (project == null)
+                    {
+                        await LogAsync("No active project found");
+                        return false;
+                    }
+
+                    // Get project directory
+                    projectDir = Path.GetDirectoryName(project.FullName);
+                    if (string.IsNullOrEmpty(projectDir))
+                    {
+                        await LogAsync("Could not determine project directory");
+                        return false;
+                    }
                 }
 
                 // Create the full file path, considering optional folder path
@@ -769,6 +885,72 @@ namespace FileReceiverExtension
             return null;
         }
 
+        private List<ProjectInfo> GetAllProjects()
+        {
+            var projects = new List<ProjectInfo>();
+            
+            try
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+
+                if (_dte?.Solution?.Projects != null)
+                {
+                    foreach (Project project in _dte.Solution.Projects)
+                    {
+                        try
+                        {
+                            // Skip solution folders and other non-project types  
+                            if (project.Kind == "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}") // Solution Folder GUID
+                                continue;
+
+                            var projectDir = Path.GetDirectoryName(project.FullName);
+                            if (!string.IsNullOrEmpty(projectDir) && Directory.Exists(projectDir))
+                            {
+                                projects.Add(new ProjectInfo
+                                {
+                                    Name = project.Name,
+                                    FullName = project.FullName,
+                                    Directory = projectDir,
+                                    Kind = project.Kind
+                                });
+                                LogAsync($"Added project: {project.Name} at {projectDir}").ConfigureAwait(false);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            LogAsync($"Error processing project {project?.Name}: {ex.Message}").ConfigureAwait(false);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogAsync($"Error getting all projects: {ex.Message}").ConfigureAwait(false);
+            }
+
+            return projects;
+        }
+
+        private string CreateProjectsJson(List<ProjectInfo> projects)
+        {
+            var jsonBuilder = new StringBuilder();
+            jsonBuilder.Append("{\"projects\":[");
+            
+            for (int i = 0; i < projects.Count; i++)
+            {
+                if (i > 0) jsonBuilder.Append(",");
+                
+                jsonBuilder.Append("{");
+                jsonBuilder.Append($"\"name\":\"{EscapeJsonString(projects[i].Name)}\",");
+                jsonBuilder.Append($"\"directory\":\"{EscapeJsonString(projects[i].Directory)}\",");
+                jsonBuilder.Append($"\"fullName\":\"{EscapeJsonString(projects[i].FullName)}\"");
+                jsonBuilder.Append("}");
+            }
+            
+            jsonBuilder.Append("]}");
+            return jsonBuilder.ToString();
+        }
+
         private async Task WriteResponseAsync(HttpListenerResponse response, string message)
         {
             try
@@ -813,6 +995,7 @@ namespace FileReceiverExtension
             public string FileName { get; set; }
             public string Content { get; set; }
             public string FolderPath { get; set; } // Optional folder path relative to project root
+            public string ProjectDirectory { get; set; } // Optional specific project directory
         }
     }
 }
