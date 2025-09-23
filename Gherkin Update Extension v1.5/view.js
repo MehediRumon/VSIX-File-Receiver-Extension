@@ -1862,12 +1862,20 @@ function onProjectSelectionChange() {
 function loadFolders() {
     const statusDiv = document.getElementById('projectStatus');
     const folderSelect = document.getElementById('folderSelect');
+    const projectSelect = document.getElementById('projectSelect');
     
-    // For now, use the existing folders API which works with active project
-    // In a full implementation, we'd modify the API to accept project parameter
+    // Get the selected project directory
+    const selectedProject = projectSelect.value;
+    
     statusDiv.innerHTML = '<span style="color: #059669;">🔄 Loading folders...</span>';
     
-    fetch('http://localhost:8080/folders')
+    // Build the URL with project parameter if a project is selected
+    let url = 'http://localhost:8080/folders';
+    if (selectedProject && selectedProject.trim() !== '') {
+        url += `?project=${encodeURIComponent(selectedProject.trim())}`;
+    }
+    
+    fetch(url)
         .then(response => {
             if (response.ok) {
                 return response.json();
