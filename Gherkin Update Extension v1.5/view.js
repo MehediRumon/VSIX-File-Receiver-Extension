@@ -1884,19 +1884,25 @@ function loadFolders() {
             }
         })
         .then(data => {
-            folderSelect.innerHTML = '<option value="">Project Root</option>';
+            folderSelect.innerHTML = '<option value="">📁 Project Root</option>';
             
             if (data.folders && data.folders.length > 0) {
-                data.folders.forEach(folder => {
-                    if (folder.path !== "") { // Skip the root folder since we already have it
-                        const option = document.createElement('option');
-                        option.value = folder.path;
-                        option.textContent = folder.name;
-                        folderSelect.appendChild(option);
-                    }
+                // Filter out root folder and sort by path for proper hierarchy
+                const sortedFolders = data.folders
+                    .filter(folder => folder.path !== "")
+                    .sort((a, b) => a.path.localeCompare(b.path));
+                
+                // Create hierarchical folder display
+                const folderHierarchy = createFolderHierarchy(sortedFolders);
+                
+                folderHierarchy.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder.path;
+                    option.textContent = folder.displayName;
+                    folderSelect.appendChild(option);
                 });
                 
-                statusDiv.innerHTML = `<span style="color: #10b981;">✅ Loaded folders for selected project</span>`;
+                statusDiv.innerHTML = `<span style="color: #10b981;">✅ Loaded folders for selected project (${sortedFolders.length} folders)</span>`;
             } else {
                 statusDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ No folders found in project</span>';
             }
@@ -1928,6 +1934,61 @@ function loadFolders() {
                 window.showToast(toastMessage, 'error');
             }
         });
+}
+
+// Helper function to create hierarchical folder display
+function createFolderHierarchy(folders) {
+    // Sort folders to ensure proper hierarchical display
+    const sortedFolders = folders.sort((a, b) => a.path.localeCompare(b.path));
+    
+    return sortedFolders.map((folder, index) => {
+        const depth = folder.depth || folder.path.split('/').length;
+        const pathParts = folder.path.split('/');
+        let displayName = '';
+        
+        if (depth === 1) {
+            // Top-level folder
+            displayName = `📁 ${folder.name}`;
+        } else {
+            // For nested folders, create a more visual hierarchy
+            let prefix = '';
+            
+            // Check if this is the last item at this level
+            const isLastAtLevel = !sortedFolders.some((f, i) => {
+                if (i <= index) return false;
+                const fParts = f.path.split('/');
+                const fDepth = f.depth || fParts.length;
+                
+                // Check if it's a sibling (same parent path and same depth)
+                if (fDepth === depth) {
+                    const parentPath = pathParts.slice(0, -1).join('/');
+                    const fParentPath = fParts.slice(0, -1).join('/');
+                    return parentPath === fParentPath;
+                }
+                return false;
+            });
+            
+            // Build prefix based on depth
+            for (let i = 1; i < depth; i++) {
+                if (i === depth - 1) {
+                    // Last level - use tree characters
+                    prefix += isLastAtLevel ? '└── ' : '├── ';
+                } else {
+                    // Intermediate levels - use spacing
+                    prefix += '│   ';
+                }
+            }
+            
+            displayName = `${prefix}📁 ${folder.name}`;
+        }
+        
+        return {
+            path: folder.path,
+            name: folder.name,
+            displayName: displayName,
+            depth: depth
+        };
+    });
 }
 
 function sendFileToVisualStudio(filename, content, folderPath = null, projectDirectory = null) {
