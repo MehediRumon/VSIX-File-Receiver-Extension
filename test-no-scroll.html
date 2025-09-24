@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test No-Scroll Highlight Behavior</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif;
+            height: 200vh; /* Make page scrollable */
+            padding: 20px;
+        }
+        .test-element {
+            margin: 100px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            background: #f9f9f9;
+        }
+        /* Copy the extension's highlight styles */
+        .highlighted-element-qa-ext {
+            outline: 3px solid #0ea5e9 !important;
+            transition: outline 0.2s;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test: Element Highlighting Without Scroll</h1>
+    <p>This page tests that elements can be highlighted without automatic scrolling.</p>
+    
+    <div class="test-element" id="element1">
+        Element 1 - Should be highlighted without scrolling when clicked
+    </div>
+    
+    <div class="test-element" id="element2">
+        Element 2 - Should be highlighted without scrolling when clicked
+    </div>
+    
+    <div class="test-element" id="element3">
+        Element 3 - Should be highlighted without scrolling when clicked
+    </div>
+    
+    <button onclick="testHighlight('element1')">Highlight Element 1</button>
+    <button onclick="testHighlight('element2')">Highlight Element 2</button>
+    <button onclick="testHighlight('element3')">Highlight Element 3</button>
+    
+    <script>
+        // Simulate the modified highlightElement function from content.js
+        function clearPreviousHighlights() {
+            document.querySelectorAll('.highlighted-element-qa-ext').forEach(el => {
+                el.classList.remove('highlighted-element-qa-ext');
+            });
+        }
+
+        function highlightElement(element) {
+            if (!element) return;
+            clearPreviousHighlights();
+            element.classList.add('highlighted-element-qa-ext');
+            // Note: scrollIntoView has been removed!
+
+            setTimeout(() => {
+                element.classList.remove('highlighted-element-qa-ext');
+            }, 3000);
+        }
+        
+        function testHighlight(elementId) {
+            const element = document.getElementById(elementId);
+            highlightElement(element);
+        }
+    </script>
+
+    <p style="margin-top: 50vh;">Bottom of page - scroll up to see elements highlighted without auto-scroll</p>
+</body>
+</html>
