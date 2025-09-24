@@ -221,7 +221,6 @@ function highlightElement(element) {
     if (!element) return;
     clearPreviousHighlights(); // Clear old highlights first
     element.classList.add('highlighted-element-qa-ext');
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     // Optionally, remove after 3 seconds (optional)
     setTimeout(() => {
