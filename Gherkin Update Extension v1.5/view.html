@@ -52,6 +52,8 @@
             max-width: 1000px;
             margin: auto;
             padding: 2rem 1rem 1rem 1rem;
+            max-height: 80vh;
+            overflow-y: auto;
         }
 
         .section {
@@ -723,56 +725,66 @@
                         <span id="individualFilesToggle" style="font-size: 0.8em; transition: transform 0.3s ease;">▼</span>
                     </h4>
                     <div id="individualFilesSection" style="transition: all 0.3s ease;"
-                        <div class="download-buttons" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
-                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                <button id="downloadElementBtn" class="download-btn" style="background: #22c55e; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        <!-- Individual Download Buttons - Single Line -->
+                        <div style="margin-bottom: 1rem;">
+                            <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Individual Download:</h5>
+                            <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;">
+                                <button id="downloadElementBtn" class="download-btn" style="background: #22c55e; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
                                     📄 Element.cs
                                 </button>
-                                <button id="sendElementBtn" class="send-individual-btn" style="background: #16a34a; color: white; border: none; padding: 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
-                                    🚀 Send Element to VS
-                                </button>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                <button id="downloadPageBtn" class="download-btn" style="background: #3b82f6; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                                <button id="downloadPageBtn" class="download-btn" style="background: #3b82f6; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
                                     📄 Page.cs
                                 </button>
-                                <button id="sendPageBtn" class="send-individual-btn" style="background: #2563eb; color: white; border: none; padding: 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
-                                    🚀 Send Page to VS
-                                </button>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                <button id="downloadStepBtn" class="download-btn" style="background: #f59e0b; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                                <button id="downloadStepBtn" class="download-btn" style="background: #f59e0b; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
                                     📄 Step.cs
                                 </button>
-                                <button id="sendStepBtn" class="send-individual-btn" style="background: #d97706; color: white; border: none; padding: 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
-                                    🚀 Send Step to VS
-                                </button>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                <button id="downloadFeatureBtn" class="download-btn" style="background: #8b5cf6; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                                <button id="downloadFeatureBtn" class="download-btn" style="background: #8b5cf6; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
                                     📄 .feature
                                 </button>
-                                <button id="sendFeatureBtn" class="send-individual-btn" style="background: #7c3aed; color: white; border: none; padding: 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
-                                    🚀 Send Feature to VS
+                            </div>
+                        </div>
+                        
+                        <!-- Individual Send Buttons - Single Line -->
+                        <div style="margin-bottom: 1rem;">
+                            <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Individual Send to VS:</h5>
+                            <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;">
+                                <button id="sendElementBtn" class="send-individual-btn" style="background: #16a34a; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
+                                    🚀 Send Element
+                                </button>
+                                <button id="sendPageBtn" class="send-individual-btn" style="background: #2563eb; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
+                                    🚀 Send Page
+                                </button>
+                                <button id="sendStepBtn" class="send-individual-btn" style="background: #d97706; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
+                                    🚀 Send Step
+                                </button>
+                                <button id="sendFeatureBtn" class="send-individual-btn" style="background: #7c3aed; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
+                                    🚀 Send Feature
                                 </button>
                             </div>
                         </div>
                         
                         <h4 style="margin-bottom: 0.5rem; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between;" onclick="toggleSection('bulkActionsSection')">
-                            Bulk Download & Send:
+                            Bulk Actions:
                             <span id="bulkActionsToggle" style="font-size: 0.8em; transition: transform 0.3s ease;">▼</span>
                         </h4>
                         <div id="bulkActionsSection" style="transition: all 0.3s ease;"
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
-                                <button id="downloadAllIndividualBtn" class="download-btn" style="background: #06b6d4; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
-                                    📄 Download All Individual
-                                </button>
-                                <button id="downloadAllZipBtn" class="download-btn" style="background: #ef4444; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">
-                                    📦 Download All as ZIP
-                                </button>
+                            <!-- Bulk Download Button -->
+                            <div style="margin-bottom: 0.8rem;">
+                                <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Bulk Download:</h5>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button id="downloadAllIndividualBtn" class="download-btn" style="background: #06b6d4; color: white; border: none; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; flex: 1;">
+                                        📄 Download All Individual
+                                    </button>
+                                    <button id="downloadAllZipBtn" class="download-btn" style="background: #ef4444; color: white; border: none; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; flex: 1;">
+                                        📦 Download All as ZIP
+                                    </button>
+                                </div>
                             </div>
+                            
+                            <!-- Bulk Send Button -->
                             <div style="margin-bottom: 1rem;">
-                                <button id="sendToVisualStudioBtn" class="download-btn" style="background: #7c3aed; color: white; border: none; padding: 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; width: 100%;">
+                                <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Bulk Send:</h5>
+                                <button id="sendToVisualStudioBtn" class="download-btn" style="background: #7c3aed; color: white; border: none; padding: 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; width: 100%;">
                                     🚀 Send All Files to Visual Studio
                                 </button>
                             </div>
