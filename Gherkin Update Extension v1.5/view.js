@@ -1772,7 +1772,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Project and folder selection buttons
     document.getElementById('loadProjectsBtn')?.addEventListener('click', () => loadProjects());
-    document.getElementById('loadFoldersBtn')?.addEventListener('click', () => loadFolders());
     document.getElementById('projectSelect')?.addEventListener('change', () => onProjectSelectionChange());
 });
 
@@ -2016,17 +2015,14 @@ function loadProjects() {
 function onProjectSelectionChange() {
     const projectSelect = document.getElementById('projectSelect');
     const folderSelect = document.getElementById('folderSelect');
-    const loadFoldersBtn = document.getElementById('loadFoldersBtn');
     
     if (projectSelect.value) {
-        loadFoldersBtn.disabled = false;
         folderSelect.disabled = false;
         folderSelect.innerHTML = '<option value="">Project Root</option>';
         
         // Auto-load folders when project is selected
         loadFolders();
     } else {
-        loadFoldersBtn.disabled = true;
         folderSelect.disabled = true;
         folderSelect.innerHTML = '<option value="">Select project first...</option>';
     }
