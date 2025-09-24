@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -443,7 +444,8 @@ namespace FileReceiverExtension
                 { 
                     Name = "Project Root", 
                     Path = "", 
-                    FullPath = projectDir 
+                    FullPath = projectDir,
+                    Depth = 0
                 });
 
                 // Get all subdirectories
@@ -463,13 +465,22 @@ namespace FileReceiverExtension
                     }
 
                     var relativePath = GetRelativePath(projectDir, dir);
+                    var normalizedPath = relativePath.Replace(Path.DirectorySeparatorChar, '/');
+                    
+                    // Calculate depth by counting path separators
+                    var depth = normalizedPath.Split('/').Length;
+                    
                     folders.Add(new FolderInfo 
                     { 
                         Name = dirName, 
-                        Path = relativePath.Replace(Path.DirectorySeparatorChar, '/'),
-                        FullPath = dir
+                        Path = normalizedPath,
+                        FullPath = dir,
+                        Depth = depth
                     });
                 }
+                
+                // Sort folders by path to ensure proper hierarchical order
+                folders = folders.OrderBy(f => f.Path).ToList();
             }
             catch (Exception ex)
             {
@@ -519,7 +530,8 @@ namespace FileReceiverExtension
                 
                 jsonBuilder.Append("{");
                 jsonBuilder.Append($"\"name\":\"{EscapeJsonString(folders[i].Name)}\",");
-                jsonBuilder.Append($"\"path\":\"{EscapeJsonString(folders[i].Path)}\"");
+                jsonBuilder.Append($"\"path\":\"{EscapeJsonString(folders[i].Path)}\",");
+                jsonBuilder.Append($"\"depth\":{folders[i].Depth}");
                 jsonBuilder.Append("}");
             }
             
@@ -543,6 +555,7 @@ namespace FileReceiverExtension
             public string Name { get; set; }
             public string Path { get; set; }
             public string FullPath { get; set; }
+            public int Depth { get; set; }
         }
 
         private class ProjectInfo
