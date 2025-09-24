@@ -2,7 +2,6 @@
 export function highlightElement(element) {
     const previousOutline = element.style.outline;
     element.style.outline = '3px solid #0ea5e9';
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     setTimeout(() => {
         element.style.outline = previousOutline;  // Restore previous outline after a delay
