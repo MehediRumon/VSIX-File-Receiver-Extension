@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test 404 Fix Validation - Enhanced Recursive Project Search</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            line-height: 1.6; 
+            background-color: #f5f5f5;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+            background: #f9f9f9; 
+        }
+        .success { background-color: #e8f5e9; border-color: #4caf50; }
+        .error { background-color: #ffebee; border-color: #f44336; }
+        .warning { background-color: #fff3e0; border-color: #ff9800; }
+        .info { background-color: #e3f2fd; border-color: #2196f3; }
+        
+        button { 
+            background: #1976d2; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 5px; 
+        }
+        button:hover { background: #1565c0; }
+        button:disabled { 
+            background: #ccc; 
+            cursor: not-allowed; 
+        }
+        
+        select, input[type="text"], textarea { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            box-sizing: border-box; 
+            margin: 5px 0;
+        }
+        
+        .console { 
+            background: #263238; 
+            color: #e0e0e0; 
+            padding: 15px; 
+            border-radius: 4px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 12px; 
+            max-height: 400px; 
+            overflow-y: auto; 
+            white-space: pre-wrap; 
+            margin: 10px 0;
+        }
+        
+        .status { 
+            padding: 10px; 
+            border-radius: 4px; 
+            margin: 10px 0; 
+            font-weight: bold;
+        }
+        
+        h1 { 
+            color: #1976d2; 
+            text-align: center; 
+            margin-bottom: 30px;
+        }
+        
+        .fix-info { 
+            background: #e8f5e9; 
+            padding: 20px; 
+            border-left: 4px solid #4caf50; 
+            margin-bottom: 30px; 
+            border-radius: 4px;
+        }
+        
+        .clear-btn {
+            background: #666;
+            font-size: 12px;
+            padding: 5px 10px;
+            float: right;
+        }
+        .clear-btn:hover { background: #555; }
+        
+        .debug-info {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .step-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        
+        .step-description {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .path-display {
+            background: #f5f5f5;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 5px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Test 404 Fix Validation</h1>
+        
+        <div class="fix-info">
+            <strong>Fix Applied:</strong> Enhanced recursive project directory search with multiple fallback mechanisms.<br>
+            <strong>Issue Fixed:</strong> Projects nested in deep solution folder hierarchies now get found correctly.<br>
+            <strong>Improvements:</strong>
+            <ul>
+                <li>Added comprehensive logging with method prefixes for easy debugging</li>
+                <li>Implemented path normalization to handle various path formats</li>
+                <li>Added URL decoding safety checks</li>
+                <li>Implemented fallback search using GetAllProjectsAsync results</li>
+                <li>Improved COM collection handling with index-based iteration</li>
+                <li>Added defensive programming for Visual Studio automation objects</li>
+            </ul>
+        </div>
+        
+        <div class="test-section info">
+            <div class="step-title">📋 Testing Instructions</div>
+            <div class="step-description">
+                <strong>Before Testing:</strong>
+                <ol>
+                    <li>Open Visual Studio with a solution containing projects nested in solution folders</li>
+                    <li>Ensure the VSIX File Receiver Extension is loaded and running</li>
+                    <li>Verify the service is listening on http://localhost:8080</li>
+                    <li>Open this HTML file in Chrome browser</li>
+                </ol>
+                
+                <strong>Test Scenario:</strong><br>
+                This test specifically targets the issue where project selection from dropdown results in 404 errors.
+                The enhanced logging will show exactly what happens during the recursive search process.
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <div class="step-title">Step 1: Load and Verify Projects</div>
+            <div class="step-description">
+                Load all projects to verify the extension can detect projects in nested solution folders.
+                Pay attention to the project paths - projects with complex folder structures should appear.
+            </div>
+            <button onclick="loadProjects()">🔄 Load Projects from Visual Studio</button>
+            <div id="projectStatus" class="status"></div>
+            
+            <label for="projectSelect">Select a Project (especially one nested deep in solution folders):</label>
+            <select id="projectSelect" onchange="onProjectChange()">
+                <option value="">Choose a project...</option>
+            </select>
+            <div id="selectedProjectInfo" style="margin-top: 10px; font-size: 14px; color: #666;"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="step-title">Step 2: Test Enhanced Recursive Folder Loading</div>
+            <div class="step-description">
+                This is the critical test! When you select a project, it will automatically attempt to load folders.
+                The enhanced recursive search with fallback mechanisms should now work for deeply nested projects.
+                <strong>Watch the console logs below for detailed debugging information.</strong>
+            </div>
+            <button onclick="loadFolders()" id="loadFoldersBtn" disabled>📁 Manual Load Folders (Auto-triggered on selection)</button>
+            <div id="folderStatus" class="status"></div>
+            
+            <label for="folderSelect">Available Folders:</label>
+            <select id="folderSelect" disabled>
+                <option value="">Select project first...</option>
+            </select>
+        </div>
+
+        <div class="test-section">
+            <div class="step-title">Step 3: Test Complete Workflow</div>
+            <div class="step-description">
+                Send a test file to verify the complete project selection → folder loading → file sending workflow.
+            </div>
+            <button onclick="sendTestFile()" id="sendFileBtn" disabled>📤 Send Test File</button>
+            <div id="sendStatus" class="status"></div>
+            
+            <div style="margin-top: 15px;">
+                <label for="testFileName">Test File Name:</label>
+                <input type="text" id="testFileName" value="404-fix-test.txt" placeholder="test-file.txt">
+                
+                <label for="testContent">Test File Content:</label>
+                <textarea id="testContent" rows="4" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">404 Fix Validation Test File
+Generated at: [Will be set when project is selected]
+Selected project: [Will be set when project is selected]
+
+This file verifies that the enhanced recursive project search
+successfully handles projects nested in deep solution folder hierarchies.</textarea>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="step-title">📊 Debug Information</div>
+            <button onclick="clearConsole()" class="clear-btn">Clear Console</button>
+            <div class="step-description">
+                The enhanced logging will show detailed information about the recursive search process.
+                Look for logs with prefixes like [FindProjectByDirectoryRecursive], [SearchProjectItemsRecursive], etc.
+            </div>
+            <div id="console" class="console">Loading console...\n</div>
+        </div>
+
+        <div class="test-section info">
+            <div class="step-title">🔍 What to Look For</div>
+            <div class="step-description">
+                <strong>Success Indicators:</strong>
+                <ul>
+                    <li>✅ Projects load successfully (including nested ones)</li>
+                    <li>✅ Project selection works without 404 errors</li>
+                    <li>✅ Folder loading succeeds for nested projects</li>
+                    <li>✅ File sending completes successfully</li>
+                </ul>
+                
+                <strong>Debug Information in Console:</strong>
+                <ul>
+                    <li><code>[HandleGetFoldersAsync]</code> - Shows URL decoding and search initiation</li>
+                    <li><code>[FindProjectByDirectoryRecursive]</code> - Shows primary recursive search progress</li>
+                    <li><code>[SearchProjectItemsRecursive]</code> - Shows deep solution folder traversal</li>
+                    <li><code>Fallback search</code> - Shows if primary search failed and fallback was used</li>
+                    <li><code>MATCH FOUND</code> - Indicates successful project discovery</li>
+                </ul>
+                
+                <strong>If Problems Persist:</strong>
+                <ul>
+                    <li>Check the Visual Studio Output window for detailed logs</li>
+                    <li>Look for specific error messages in the console below</li>
+                    <li>Try different project structures to isolate the issue</li>
+                    <li>Report the specific error pattern for further debugging</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedProjectDir = '';
+        let selectedProjectFullName = '';
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : 
+                          type === 'success' ? '✅' : 
+                          type === 'warning' ? '⚠️' : 
+                          type === 'debug' ? '🔍' : 'ℹ️';
+            
+            const formattedMessage = `[${timestamp}] ${prefix} ${message}`;
+            console.log(formattedMessage);
+            
+            const consoleElement = document.getElementById('console');
+            consoleElement.textContent += formattedMessage + '\n';
+            consoleElement.scrollTop = consoleElement.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById('console').innerHTML = 'Console cleared...\n';
+        }
+
+        function setStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = message;
+            element.className = `status ${type}`;
+        }
+
+        function loadProjects() {
+            log('🔍 Starting enhanced project load test...', 'debug');
+            setStatus('projectStatus', '🔄 Loading projects from Visual Studio...', 'warning');
+            
+            const projectSelect = document.getElementById('projectSelect');
+            projectSelect.innerHTML = '<option value="">Loading...</option>';
+            
+            fetch('http://localhost:8080/projects')
+                .then(response => {
+                    log(`📡 Projects response: ${response.status} ${response.statusText}`);
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    log(`📊 Projects response received with ${data.projects ? data.projects.length : 0} projects`);
+                    
+                    projectSelect.innerHTML = '<option value="">Choose a project...</option>';
+                    
+                    if (data.projects && data.projects.length > 0) {
+                        data.projects.forEach((project, index) => {
+                            log(`📁 Project ${index + 1}: ${project.name}`);
+                            log(`  📂 Directory: ${project.directory}`);
+                            log(`  📄 Full Name: ${project.fullName}`);
+                            
+                            const option = document.createElement('option');
+                            option.value = project.directory;
+                            option.textContent = `${project.name} (${project.directory})`;
+                            option.dataset.fullName = project.fullName;
+                            option.dataset.directory = project.directory;
+                            projectSelect.appendChild(option);
+                        });
+                        
+                        setStatus('projectStatus', `✅ Successfully loaded ${data.projects.length} projects`, 'success');
+                        log(`✅ Successfully loaded ${data.projects.length} projects`, 'success');
+                        
+                        // Check for deeply nested projects
+                        const nestedProjects = data.projects.filter(p => p.directory.split('\\').length > 4);
+                        if (nestedProjects.length > 0) {
+                            log(`📊 Found ${nestedProjects.length} deeply nested projects - perfect for testing!`, 'info');
+                        }
+                    } else {
+                        setStatus('projectStatus', '⚠️ No projects found in solution', 'warning');
+                        log('⚠️ No projects found in response', 'warning');
+                    }
+                })
+                .catch(error => {
+                    log(`❌ ERROR loading projects: ${error.message}`, 'error');
+                    setStatus('projectStatus', `❌ Error: ${error.message}`, 'error');
+                    projectSelect.innerHTML = '<option value="">Error loading projects</option>';
+                    
+                    if (error.message.includes('Failed to fetch')) {
+                        log('💡 Make sure Visual Studio is running with the VSIX extension loaded', 'warning');
+                        log('💡 Verify that the service is listening on http://localhost:8080', 'warning');
+                    }
+                });
+        }
+
+        function onProjectChange() {
+            const projectSelect = document.getElementById('projectSelect');
+            const folderSelect = document.getElementById('folderSelect');
+            const loadFoldersBtn = document.getElementById('loadFoldersBtn');
+            const sendFileBtn = document.getElementById('sendFileBtn');
+            const selectedProjectInfo = document.getElementById('selectedProjectInfo');
+            
+            selectedProjectDir = projectSelect.value;
+            const selectedOption = projectSelect.options[projectSelect.selectedIndex];
+            selectedProjectFullName = selectedOption ? selectedOption.dataset.fullName : '';
+            
+            if (selectedProjectDir) {
+                log(`🎯 Project selected: "${selectedProjectDir}"`, 'debug');
+                log(`📂 Full name: "${selectedProjectFullName}"`, 'debug');
+                
+                // Check nesting level
+                const pathDepth = selectedProjectDir.split('\\').length;
+                log(`📊 Project path depth: ${pathDepth} levels`, 'debug');
+                if (pathDepth > 4) {
+                    log(`🎯 EXCELLENT! This is a deeply nested project - perfect test case for the 404 fix!`, 'success');
+                }
+                
+                selectedProjectInfo.innerHTML = `
+                    <strong>Selected:</strong> ${selectedOption.textContent}<br>
+                    <strong>Directory:</strong> ${selectedProjectDir}<br>
+                    <strong>Full Name:</strong> ${selectedProjectFullName}<br>
+                    <strong>Path Depth:</strong> ${pathDepth} levels ${pathDepth > 4 ? '(Deep nesting - great test!)' : ''}
+                `;
+                
+                loadFoldersBtn.disabled = false;
+                folderSelect.disabled = false;
+                folderSelect.innerHTML = '<option value="">Project Root</option>';
+                
+                // Auto-load folders to test the enhanced recursive search immediately
+                log('🔄 Auto-loading folders to test enhanced recursive project search...', 'debug');
+                loadFolders();
+            } else {
+                log('🔄 Project deselected', 'debug');
+                selectedProjectInfo.innerHTML = '';
+                loadFoldersBtn.disabled = true;
+                folderSelect.disabled = true;
+                sendFileBtn.disabled = true;
+                folderSelect.innerHTML = '<option value="">Select project first...</option>';
+                setStatus('folderStatus', '');
+                setStatus('sendStatus', '');
+            }
+        }
+
+        function loadFolders() {
+            if (!selectedProjectDir) {
+                log('❌ No project selected for folder loading', 'error');
+                return;
+            }
+
+            log(`🔍 Testing enhanced recursive project search for: "${selectedProjectDir}"`, 'debug');
+            log(`📡 URL will be: http://localhost:8080/folders?project=${encodeURIComponent(selectedProjectDir)}`, 'debug');
+            setStatus('folderStatus', '🔄 Loading folders with enhanced recursive search...', 'warning');
+            
+            const folderSelect = document.getElementById('folderSelect');
+            const sendFileBtn = document.getElementById('sendFileBtn');
+            
+            // Build URL with project parameter - this is where the enhanced recursive fix is tested
+            const url = `http://localhost:8080/folders?project=${encodeURIComponent(selectedProjectDir)}`;
+            log(`📡 Request URL: ${url}`, 'debug');
+            
+            const startTime = Date.now();
+            
+            fetch(url)
+                .then(response => {
+                    const elapsed = Date.now() - startTime;
+                    log(`📡 Folders response: ${response.status} ${response.statusText} (${elapsed}ms)`, response.ok ? 'success' : 'error');
+                    
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                })
+                .then(data => {
+                    log(`📊 Folders response: ${JSON.stringify(data, null, 2)}`, 'debug');
+                    folderSelect.innerHTML = '<option value="">Project Root</option>';
+                    
+                    if (data.folders && data.folders.length > 0) {
+                        let addedFolders = 0;
+                        data.folders.forEach(folder => {
+                            if (folder.path !== "") { // Skip root folder
+                                log(`📁 Adding folder: ${folder.name} -> ${folder.path}`);
+                                const option = document.createElement('option');
+                                option.value = folder.path;
+                                option.textContent = folder.name;
+                                folderSelect.appendChild(option);
+                                addedFolders++;
+                            }
+                        });
+                        
+                        setStatus('folderStatus', `✅ Enhanced recursive search SUCCESS! Loaded ${data.folders.length} folders (${addedFolders} sub-folders)`, 'success');
+                        log(`✅ Enhanced recursive project search SUCCESS! Found ${data.folders.length} folders`, 'success');
+                        log(`🎉 The 404 fix is working! No more 404 errors for nested projects!`, 'success');
+                        sendFileBtn.disabled = false;
+                        
+                        // Update test file content
+                        updateTestFileContent();
+                    } else {
+                        setStatus('folderStatus', '✅ Enhanced recursive search SUCCESS! No sub-folders (only root available)', 'success');
+                        log('✅ Enhanced recursive project search SUCCESS! No sub-folders found', 'success');
+                        sendFileBtn.disabled = false; // Can still send to root
+                        updateTestFileContent();
+                    }
+                })
+                .catch(error => {
+                    log(`❌ ERROR in enhanced folder loading: ${error.message}`, 'error');
+                    setStatus('folderStatus', `❌ Enhanced search failed: ${error.message}`, 'error');
+                    sendFileBtn.disabled = true;
+                    
+                    if (error.message.includes('404')) {
+                        log('🔍 404 Error - The enhanced recursive search still couldn\'t find the project', 'error');
+                        log('💡 This indicates a deeper issue that needs investigation', 'warning');
+                        log('💡 Check the Visual Studio Output window for detailed [FindProjectByDirectoryRecursive] logs', 'warning');
+                        log('💡 Look for fallback search attempts and path normalization logs', 'warning');
+                    }
+                });
+        }
+
+        function updateTestFileContent() {
+            const testContent = document.getElementById('testContent');
+            const testFileName = document.getElementById('testFileName');
+            
+            if (selectedProjectDir) {
+                const timestamp = new Date().toISOString();
+                testContent.value = `404 Fix Validation Test File
+Generated at: ${timestamp}
+Selected project: ${selectedProjectDir}
+Selected project full name: ${selectedProjectFullName}
+
+This file verifies that the enhanced recursive project search
+successfully handles projects nested in deep solution folder hierarchies.
+
+Fix improvements applied:
+- Enhanced logging with method prefixes
+- Path normalization for various formats
+- URL decoding safety checks  
+- Fallback search using GetAllProjectsAsync
+- Improved COM collection handling
+- Defensive programming for VS automation`;
+                
+                testFileName.value = `404-fix-test-${Date.now()}.txt`;
+            }
+        }
+
+        function sendTestFile() {
+            if (!selectedProjectDir) {
+                log('❌ No project selected for file sending', 'error');
+                return;
+            }
+
+            const fileName = document.getElementById('testFileName').value;
+            const content = document.getElementById('testContent').value;
+            const folderSelect = document.getElementById('folderSelect');
+            const selectedFolder = folderSelect.value;
+            
+            if (!fileName.trim()) {
+                log('❌ Please enter a file name', 'error');
+                return;
+            }
+
+            log(`📤 Testing file send to: ${selectedProjectDir}`, 'debug');
+            if (selectedFolder) {
+                log(`📁 Target folder: ${selectedFolder}`, 'debug');
+            }
+            
+            setStatus('sendStatus', '🔄 Sending test file...', 'warning');
+
+            const fileData = {
+                fileName: fileName,
+                content: content,
+                folderPath: selectedFolder,
+                projectDirectory: selectedProjectDir
+            };
+
+            log(`📦 File data: ${JSON.stringify(fileData, null, 2)}`, 'debug');
+
+            fetch('http://localhost:8080/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(fileData)
+            })
+            .then(response => {
+                log(`📡 Send response: ${response.status} ${response.statusText}`);
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .then(result => {
+                log(`📤 Send result: ${result}`, 'success');
+                setStatus('sendStatus', `✅ File sent successfully! Complete workflow verified.`, 'success');
+                log(`🎉 COMPLETE SUCCESS! Enhanced 404 fix has resolved the issue completely!`, 'success');
+            })
+            .catch(error => {
+                log(`❌ ERROR sending file: ${error.message}`, 'error');
+                setStatus('sendStatus', `❌ Send failed: ${error.message}`, 'error');
+            });
+        }
+
+        // Initialize
+        log('🚀 404 Fix Validation Test initialized', 'info');
+        log('📋 Instructions: Load projects → Select nested project → Watch for successful folder loading', 'info');
+    </script>
+</body>
+</html>
