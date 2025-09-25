@@ -830,6 +830,18 @@
                         
                         <div id="projectStatus" style="margin-bottom: 1rem; font-size: 0.9rem;"></div>
                         
+                        <!-- File Selection Dropdown -->
+                        <div style="margin-bottom: 1rem;">
+                            <label for="fileSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">File Selection:</label>
+                            <select id="fileSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; background: white;">
+                                <option value="all">All Files (Element, Page, Step, Feature)</option>
+                                <option value="element">Element File Only</option>
+                                <option value="page">Page File Only</option>
+                                <option value="step">Step File Only</option>
+                                <option value="feature">Feature File Only</option>
+                            </select>
+                        </div>
+                        
                         <!-- Individual Send Buttons -->
                         <div style="margin-bottom: 1rem;">
                             <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Send Individual Files to VS:</h5>
@@ -851,9 +863,9 @@
                         
                         <!-- Bulk Send Button -->
                         <div style="margin-bottom: 1rem;">
-                            <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Send All Files:</h5>
+                            <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Send Files:</h5>
                             <button id="sendToVisualStudioBtn" class="download-btn" style="background: #7c3aed; color: white; border: none; padding: 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; width: 100%;">
-                                🚀 Send All Files to Visual Studio
+                                🚀 Create in VS
                             </button>
                         </div>
                     </div>

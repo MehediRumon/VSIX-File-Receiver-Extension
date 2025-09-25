@@ -2280,52 +2280,24 @@ function createFolderHierarchy(folders) {
     // Sort folders to ensure proper hierarchical display
     const sortedFolders = folders.sort((a, b) => a.path.localeCompare(b.path));
     
-    return sortedFolders.map((folder, index) => {
-        const depth = folder.depth || folder.path.split('/').length;
-        const pathParts = folder.path.split('/');
+    return sortedFolders.map((folder) => {
+        // Create folder display in "folder>sub folder>sub folder" format
+        const pathParts = folder.path.split('/').filter(part => part.trim() !== '');
         let displayName = '';
         
-        if (depth === 1) {
-            // Top-level folder
-            displayName = `📁 ${folder.name}`;
+        if (pathParts.length > 0) {
+            // Join path parts with '>' separator like in download format
+            displayName = `📁 ${pathParts.join(' > ')}`;
         } else {
-            // For nested folders, create a more visual hierarchy
-            let prefix = '';
-            
-            // Check if this is the last item at this level
-            const isLastAtLevel = !sortedFolders.some((f, i) => {
-                if (i <= index) return false;
-                const fParts = f.path.split('/');
-                const fDepth = f.depth || fParts.length;
-                
-                // Check if it's a sibling (same parent path and same depth)
-                if (fDepth === depth) {
-                    const parentPath = pathParts.slice(0, -1).join('/');
-                    const fParentPath = fParts.slice(0, -1).join('/');
-                    return parentPath === fParentPath;
-                }
-                return false;
-            });
-            
-            // Build prefix based on depth
-            for (let i = 1; i < depth; i++) {
-                if (i === depth - 1) {
-                    // Last level - use tree characters
-                    prefix += isLastAtLevel ? '└── ' : '├── ';
-                } else {
-                    // Intermediate levels - use spacing
-                    prefix += '│   ';
-                }
-            }
-            
-            displayName = `${prefix}📁 ${folder.name}`;
+            // Fallback for root level folders
+            displayName = `📁 ${folder.name}`;
         }
         
         return {
             path: folder.path,
             name: folder.name,
             displayName: displayName,
-            depth: depth
+            depth: folder.depth || pathParts.length
         };
     });
 }
@@ -2363,17 +2335,19 @@ function sendFileToVisualStudio(filename, content, folderPath = null, projectDir
 function sendAllToVisualStudio() {
     const projectSelect = document.getElementById('projectSelect');
     const folderSelect = document.getElementById('folderSelect');
+    const fileSelect = document.getElementById('fileSelect');
     const statusDiv = document.getElementById('projectStatus');
     
     const selectedProject = projectSelect.value;
     const selectedFolder = folderSelect.value;
+    const selectedFileType = fileSelect.value;
     
     if (!selectedProject) {
         showToast('Please select a project first', 'error');
         return;
     }
     
-    statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending files to Visual Studio...</span>';
+    statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Creating files in Visual Studio...</span>';
     
     getStoredData((result) => {
         const actionName = result.actionName || 'Default';
@@ -2384,36 +2358,44 @@ function sendAllToVisualStudio() {
         // Generate namespace
         const namespace = generateNamespace(rootFileName);
         
-        // Create the files content
+        // Create the files content based on selection
         const files = {};
         
-        // Element file
-        const locators = filterDuplicateLocators(result.collectedLocators || []);
-        const elementClassName = `${cleanActionName}Element`;
-        files[`${elementClassName}.cs`] = locators.length
-            ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
-            : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
-        
-        // Page file
-        const methods = filterDuplicateStrings(result.collectedMethods || []);
-        const pageClassName = `${cleanActionName}Page`;
-        files[`${pageClassName}.cs`] = methods.length
-            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
-            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
-        
-        // Step file
-        const stepFileCode = document.getElementById('stepFileCode');
-        if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
-            files[`${cleanActionName}Step.cs`] = stepFileCode.textContent;
-        } else {
-            files[`${cleanActionName}Step.cs`] = `// Please generate step file first`;
+        if (selectedFileType === 'all' || selectedFileType === 'element') {
+            // Element file
+            const locators = filterDuplicateLocators(result.collectedLocators || []);
+            const elementClassName = `${cleanActionName}Element`;
+            files[`${elementClassName}.cs`] = locators.length
+                ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+                : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
         }
         
-        // Feature file
-        const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
-        files[`${cleanActionName}.feature`] = gherkinSteps.length
-            ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
-            : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
+        if (selectedFileType === 'all' || selectedFileType === 'page') {
+            // Page file
+            const methods = filterDuplicateStrings(result.collectedMethods || []);
+            const pageClassName = `${cleanActionName}Page`;
+            files[`${pageClassName}.cs`] = methods.length
+                ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+                : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
+        }
+        
+        if (selectedFileType === 'all' || selectedFileType === 'step') {
+            // Step file
+            const stepFileCode = document.getElementById('stepFileCode');
+            if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
+                files[`${cleanActionName}Step.cs`] = stepFileCode.textContent;
+            } else {
+                files[`${cleanActionName}Step.cs`] = `// Please generate step file first`;
+            }
+        }
+        
+        if (selectedFileType === 'all' || selectedFileType === 'feature') {
+            // Feature file
+            const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
+            files[`${cleanActionName}.feature`] = gherkinSteps.length
+                ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
+                : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
+        }
         
         // Send files one by one
         const fileNames = Object.keys(files);
@@ -2441,11 +2423,11 @@ function sendAllToVisualStudio() {
             } else {
                 // All files processed
                 if (errorCount === 0) {
-                    statusDiv.innerHTML = `<span style="color: #10b981;">✅ Successfully sent ${successCount} files to Visual Studio!</span>`;
-                    showToast(`🚀 Successfully sent ${successCount} files to Visual Studio!`, 'success');
+                    statusDiv.innerHTML = `<span style="color: #10b981;">✅ Successfully created ${successCount} files in Visual Studio!</span>`;
+                    showToast(`🚀 Successfully created ${successCount} files in Visual Studio!`, 'success');
                 } else {
-                    statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Sent ${successCount} files, ${errorCount} failed</span>`;
-                    showToast(`Sent ${successCount} files, ${errorCount} failed`, 'warning');
+                    statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Created ${successCount} files, ${errorCount} failed</span>`;
+                    showToast(`Created ${successCount} files, ${errorCount} failed`, 'warning');
                 }
             }
         };
