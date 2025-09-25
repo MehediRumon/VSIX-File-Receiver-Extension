@@ -15,7 +15,7 @@
             margin: 0;
             padding: 0;
             min-width: 340px;
-            max-height: 600px;
+            min-height: 500px;
         }
 
             body.dark-mode {
@@ -27,7 +27,6 @@
             position: relative;
             padding: 18px 13px 34px 13px;
             padding-bottom: 80px; /* Leaves space for the FAB */
-            max-height: 580px;
         }
 
         .header {
@@ -288,6 +287,8 @@
                 <input type="text" id="menuNameInput" placeholder="Student Target" />
                 <label for="actionNameInput">Action Name</label>
                 <input type="text" id="actionNameInput" placeholder="TargetEntry" />
+                <label for="rootFileNameInput">Root File Name (for namespace)</label>
+                <input type="text" id="rootFileNameInput" placeholder="Enter root file name" />
             </div>
             <div class="toggle-row">
                 <span>Enable Collection</span>

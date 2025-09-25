@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Method Mapping Test</title>
+    <script src="xlsx.full.min.js"></script>
+</head>
+<body>
+    <h1>Testing Improved Method Mapping</h1>
+    <button id="testButton">Test Method Mapping</button>
+    <div id="results"></div>
+
+    <script src="view.js"></script>
+    <script>
+        // Mock chrome.storage for testing
+        if (typeof chrome === 'undefined') {
+            window.chrome = {
+                storage: {
+                    sync: {
+                        get: function(keys, callback) {
+                            // Test data matching your example
+                            const testData = {
+                                collectedMethods: [
+                                    'public IWebElement GetOrganization() => driver.FindElement(AttendanceDeviceElement.Organization);',
+                                    'public IWebElement GetBranch() => driver.FindElement(AttendanceDeviceElement.Branch);',
+                                    'public IWebElement GetAttendanceDeviceType() => driver.FindElement(AttendanceDeviceElement.AttendanceDeviceType);',
+                                    'public IWebElement GetEnableCard() => driver.FindElement(AttendanceDeviceElement.EnableCard);',
+                                    'public IWebElement GetCampus() => driver.FindElement(AttendanceDeviceElement.Campus);',
+                                    'public IWebElement GetEnableFinger() => driver.FindElement(AttendanceDeviceElement.EnableFinger);',
+                                    'public IWebElement GetName() => driver.FindElement(AttendanceDeviceElement.Name);',
+                                    'public IWebElement GetSynchronizer() => driver.FindElement(AttendanceDeviceElement.Synchronizer);',
+                                    'public IWebElement GetCommunType() => driver.FindElement(AttendanceDeviceElement.CommunType);',
+                                    'public IWebElement GetCommunKey() => driver.FindElement(AttendanceDeviceElement.CommunKey);',
+                                    'public IWebElement GetModelCode() => driver.FindElement(AttendanceDeviceElement.ModelCode);',
+                                    'public IWebElement GetModelName() => driver.FindElement(AttendanceDeviceElement.ModelName);',
+                                    'public IWebElement GetPort() => driver.FindElement(AttendanceDeviceElement.Port);',
+                                    'public IWebElement GetIPAddress() => driver.FindElement(AttendanceDeviceElement.IPAddress);',
+                                    'public IWebElement GetMachineNo() => driver.FindElement(AttendanceDeviceElement.MachineNo);',
+                                    'public IWebElement GetSave() => driver.FindElement(AttendanceDeviceElement.Save);',
+                                    'public IWebElement GetSaveAndExit() => driver.FindElement(AttendanceDeviceElement.SaveAndExit);'
+                                ],
+                                collectedGherkinSteps: [
+                                    'When Select Add Device Organization "<Organization>"',
+                                    'When Select Add Device Branch "<Branch>"',
+                                    'When Select Add Device Attendance Device Type "<AttendanceDeviceType>"',
+                                    'When Select Add Device Enable Card "<EnableCard>"',
+                                    'When Select Add Device Campus "<Campus>"',
+                                    'When Select Add Device Enable Finger "<EnableFinger>"',
+                                    'When Enter Add Device Name "<Name>"',
+                                    'When Select Add Device Synchronizer "<Synchronizer>"',
+                                    'When Select Add Device Commun.Type "<Commun.Type>"',
+                                    'When Enter Add Device Commun.Key "<Commun.Key>"',
+                                    'When Enter Add Device Model Code "<ModelCode>"',
+                                    'When Enter Add Device Model Name "<ModelName>"',
+                                    'When Enter Add Device Port "<Port>"',
+                                    'When Enter Add Device IPAddress "<IPAddress>"',
+                                    'When Enter Add Device Machine No "<MachineNo>"',
+                                    'When Click On Add Device Save',
+                                    'When Click On Add Device Save And Exit'
+                                ],
+                                actionName: 'AttendanceDevice',
+                                rootFileName: 'UMS.UI.Test.ERP.Areas.AttendanceDevice'
+                            };
+                            callback(testData);
+                        }
+                    }
+                }
+            };
+        }
+
+        document.getElementById('testButton').addEventListener('click', async () => {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2>Testing Method Mapping...</h2>';
+            
+            // Test cases that were problematic
+            const testSteps = [
+                { step: 'When Select Add Device Organization "<Organization>"', expectedMethod: 'Organization', index: 0 },
+                { step: 'When Select Add Device Campus "<Campus>"', expectedMethod: 'Campus', index: 4 },
+                { step: 'When Enter Add Device Name "<Name>"', expectedMethod: 'Name', index: 6 },
+                { step: 'When Enter Add Device Port "<Port>"', expectedMethod: 'Port', index: 12 },
+                { step: 'When Click On Add Device Save', expectedMethod: 'Save', index: 15 },
+                { step: 'When Click On Add Device Save And Exit', expectedMethod: 'SaveAndExit', index: 16 }
+            ];
+            
+            let allPassed = true;
+            
+            for (const testCase of testSteps) {
+                try {
+                    const result = await extractElementNameFromStep(testCase.step, testCase.index);
+                    const passed = result === testCase.expectedMethod;
+                    allPassed = allPassed && passed;
+                    
+                    results.innerHTML += `
+                        <div style="margin: 10px 0; padding: 10px; background: ${passed ? '#d4edd4' : '#f8d7da'}; border-radius: 5px;">
+                            <strong>Step:</strong> ${testCase.step}<br>
+                            <strong>Expected:</strong> ${testCase.expectedMethod}<br>
+                            <strong>Got:</strong> ${result}<br>
+                            <strong>Result:</strong> ${passed ? '✅ PASS' : '❌ FAIL'}
+                        </div>
+                    `;
+                } catch (error) {
+                    allPassed = false;
+                    results.innerHTML += `
+                        <div style="margin: 10px 0; padding: 10px; background: #f8d7da; border-radius: 5px;">
+                            <strong>Step:</strong> ${testCase.step}<br>
+                            <strong>Error:</strong> ${error.message}<br>
+                            <strong>Result:</strong> ❌ ERROR
+                        </div>
+                    `;
+                }
+            }
+            
+            results.innerHTML += `
+                <h2 style="color: ${allPassed ? 'green' : 'red'};">
+                    ${allPassed ? '🎉 All tests passed!' : '⚠️ Some tests failed!'}
+                </h2>
+            `;
+        });
+    </script>
+</body>
+</html>

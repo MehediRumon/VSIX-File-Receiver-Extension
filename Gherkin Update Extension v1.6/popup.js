@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportBtn = document.getElementById('export');
     const enableLogging = document.getElementById('enableLogging');
     const domainInput = document.getElementById('domainFilterInput');
+    const rootFileNameInput = document.getElementById('rootFileNameInput');
     const fabBtn = document.getElementById('fab');
     const themeToggle = document.getElementById('themeToggle');
 
@@ -48,10 +49,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Load extension settings from storage ---
-    chrome.storage.sync.get(['extensionEnabled', 'actionName', 'menuName'], (result) => {
+    chrome.storage.sync.get(['extensionEnabled', 'actionName', 'menuName', 'rootFileName'], (result) => {
         toggleSwitch.checked = result.extensionEnabled ?? false;
         actionNameInput.value = result.actionName ?? '';
         menuNameInput.value = result.menuName ?? '';
+        rootFileNameInput.value = result.rootFileName ?? '';
     });
 
     chrome.storage.local.get(['filterDomain', 'loggingEnabled'], (result) => {
@@ -114,12 +116,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // --- Set root file name (for namespace) ---
+    rootFileNameInput?.addEventListener('input', () => {
+        const rootFileName = rootFileNameInput.value.trim();
+        chrome.storage.sync.set({ rootFileName }, () => {
+            console.log('Root file name updated:', rootFileName);
+        });
+    });
+
     // --- Reset/clear all data & logs ---
     resetBtn?.addEventListener('click', () => {
         showModal("Are you sure you want to clear all data and logs?", () => {
             // Get current values from input fields
             const currentActionName = actionNameInput?.value?.trim() || '';
             const currentMenuName = menuNameInput?.value?.trim() || '';
+            const currentRootFileName = rootFileNameInput?.value?.trim() || '';
             
             // Generate class names based on current action name
             let elementClassName, pageClassName;
@@ -134,7 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             console.log('Reset with current input values:', { 
                 currentActionName, 
-                currentMenuName, 
+                currentMenuName,
+                currentRootFileName,
                 elementClassName, 
                 pageClassName 
             });
@@ -147,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 collectedParamValues: {},
                 actionName: currentActionName,
                 menuName: currentMenuName,
+                rootFileName: currentRootFileName,
                 elementClassName: elementClassName,
                 pageClassName: pageClassName
             }, () => {
