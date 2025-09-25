@@ -2457,10 +2457,53 @@ function sendAllToVisualStudio() {
 // Make toggleSection function available globally for HTML onclick handlers
 window.toggleSection = toggleSection;
 
+// ========== Visual Studio Integration Functions ==========
+
+// Load saved Visual Studio project and folder selections from popup
+function loadSavedVSSelections() {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+        chrome.storage.sync.get(['selectedVSProject', 'selectedVSFolder'], (result) => {
+            const projectSelect = document.getElementById('projectSelect');
+            const folderSelect = document.getElementById('folderSelect');
+            
+            if (result.selectedVSProject && projectSelect) {
+                // Add the saved project to the dropdown and select it
+                const projectOption = document.createElement('option');
+                projectOption.value = result.selectedVSProject;
+                projectOption.textContent = result.selectedVSProject.split(/[/\\]/).pop() || result.selectedVSProject;
+                projectOption.selected = true;
+                projectSelect.appendChild(projectOption);
+                
+                // If there's also a saved folder, load it
+                if (result.selectedVSFolder && folderSelect) {
+                    folderSelect.disabled = false;
+                    const folderOption = document.createElement('option');
+                    folderOption.value = result.selectedVSFolder;
+                    folderOption.textContent = result.selectedVSFolder ? `📁 ${result.selectedVSFolder}` : '📁 Project Root';
+                    folderOption.selected = true;
+                    folderSelect.innerHTML = '<option value="">📁 Project Root</option>';
+                    folderSelect.appendChild(folderOption);
+                }
+                
+                // Update status to show loaded project
+                const statusDiv = document.getElementById('projectStatus');
+                if (statusDiv) {
+                    const projectName = result.selectedVSProject.split(/[/\\]/).pop() || result.selectedVSProject;
+                    const folderText = result.selectedVSFolder ? ` → ${result.selectedVSFolder}` : ' → Project Root';
+                    statusDiv.innerHTML = `<span style="color: #10b981;">📁 Using selected project: ${projectName}${folderText}</span>`;
+                }
+            }
+        });
+    }
+}
+
 // ========== Download Files Functionality ==========
 
 // Add event listener for download button
 document.addEventListener('DOMContentLoaded', () => {
+    // Load saved Visual Studio project and folder selections
+    loadSavedVSSelections();
+    
     const downloadBtn = document.getElementById('downloadFilesBtn');
     const downloadModal = document.getElementById('downloadModal');
     const closeModal = document.getElementById('closeDownloadModal');

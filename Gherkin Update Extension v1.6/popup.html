@@ -281,6 +281,34 @@
             <span>Gherkin Collector</span>
             <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">🌗</button>
         </div>
+        
+        <!-- Visual Studio Project Integration Section -->
+        <div class="card">
+            <div style="color: #0ea5e9; font-weight: 600; margin-bottom: 0.8rem; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+                📁 Visual Studio Project Integration
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 0.8rem;">
+                <div class="field-group">
+                    <label for="vsProjectSelect" style="font-size: 0.85rem;">Project:</label>
+                    <select id="vsProjectSelect" style="font-size: 0.85rem; height: 32px;">
+                        <option value="">Select a project...</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label for="vsFolderSelect" style="font-size: 0.85rem;">Folder:</label>
+                    <select id="vsFolderSelect" style="font-size: 0.85rem; height: 32px;" disabled>
+                        <option value="">Select project first...</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom: 0.5rem;">
+                <button id="vsLoadProjectsBtn" style="background: #6366f1; color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">
+                    🔄 Load Projects
+                </button>
+            </div>
+            <div id="vsStatus" style="font-size: 0.8rem; color: #666; min-height: 1.2rem;"></div>
+        </div>
+        
         <div class="card">
             <div class="field-group">
                 <label for="menuNameInput">Menu Name</label>
