@@ -17,6 +17,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const rootFileNameInput = document.getElementById('rootFileNameInput');
     const fabBtn = document.getElementById('fab');
     const themeToggle = document.getElementById('themeToggle');
+    
+    // Visual Studio integration elements
+    const vsProjectSelect = document.getElementById('vsProjectSelect');
+    const vsFolderSelect = document.getElementById('vsFolderSelect');
+    const vsLoadProjectsBtn = document.getElementById('vsLoadProjectsBtn');
+    const vsStatus = document.getElementById('vsStatus');
 
     // --- Theme toggle (dark/light mode) ---
     if (localStorage.getItem("darkMode") === "enabled") document.body.classList.add("dark-mode");
@@ -49,11 +55,31 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Load extension settings from storage ---
-    chrome.storage.sync.get(['extensionEnabled', 'actionName', 'menuName', 'rootFileName'], (result) => {
+    chrome.storage.sync.get(['extensionEnabled', 'actionName', 'menuName', 'rootFileName', 'selectedVSProject', 'selectedVSFolder'], (result) => {
         toggleSwitch.checked = result.extensionEnabled ?? false;
         actionNameInput.value = result.actionName ?? '';
         menuNameInput.value = result.menuName ?? '';
         rootFileNameInput.value = result.rootFileName ?? '';
+        
+        // Load saved Visual Studio project selection
+        if (result.selectedVSProject) {
+            const option = document.createElement('option');
+            option.value = result.selectedVSProject;
+            option.textContent = result.selectedVSProject.split(/[/\\]/).pop() || result.selectedVSProject;
+            option.selected = true;
+            vsProjectSelect.appendChild(option);
+            
+            // Enable folder selection and load saved folder if available
+            if (result.selectedVSFolder) {
+                vsFolderSelect.disabled = false;
+                const folderOption = document.createElement('option');
+                folderOption.value = result.selectedVSFolder;
+                folderOption.textContent = result.selectedVSFolder || '📁 Project Root';
+                folderOption.selected = true;
+                vsFolderSelect.innerHTML = '<option value="">📁 Project Root</option>';
+                vsFolderSelect.appendChild(folderOption);
+            }
+        }
     });
 
     chrome.storage.local.get(['filterDomain', 'loggingEnabled'], (result) => {
@@ -161,7 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 menuName: currentMenuName,
                 rootFileName: currentRootFileName,
                 elementClassName: elementClassName,
-                pageClassName: pageClassName
+                pageClassName: pageClassName,
+                selectedVSProject: '', // Clear VS project selection
+                selectedVSFolder: ''   // Clear VS folder selection
             }, () => {
                 if (chrome.runtime.lastError) {
                     showToast('Error resetting: ' + chrome.runtime.lastError.message, 'error');
@@ -180,6 +208,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (chrome.runtime.lastError) {
                         showToast('Error clearing logs: ' + chrome.runtime.lastError.message, 'error');
                     } else {
+                        // Reset Visual Studio UI elements
+                        vsProjectSelect.innerHTML = '<option value="">Select a project...</option>';
+                        vsFolderSelect.innerHTML = '<option value="">Select project first...</option>';
+                        vsFolderSelect.disabled = true;
+                        vsStatus.innerHTML = '';
+                        
                         showToast('All data and logs cleared! Using current input values.', 'success');
                     }
                 });
@@ -369,4 +403,163 @@ function extractEndpointName(url) {
         showToast("Quick action: Open view!", "info");
         window.open('view.html', '_blank', 'width=900,height=800,left=200,top=100');
     };
+
+    // --- Visual Studio Integration Functions ---
+    
+    // Load Visual Studio projects
+    vsLoadProjectsBtn?.addEventListener('click', () => {
+        loadVSProjects();
+    });
+    
+    // Handle project selection change
+    vsProjectSelect?.addEventListener('change', () => {
+        onVSProjectSelectionChange();
+    });
+    
+    // Handle folder selection change
+    vsFolderSelect?.addEventListener('change', () => {
+        onVSFolderSelectionChange();
+    });
+    
+    function loadVSProjects() {
+        if (!vsStatus) return;
+        
+        vsStatus.innerHTML = '<span style="color: #6366f1;">🔄 Loading projects...</span>';
+        
+        fetch('http://localhost:8080/projects')
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .then(data => {
+                vsProjectSelect.innerHTML = '<option value="">Select a project...</option>';
+                
+                if (data.projects && data.projects.length > 0) {
+                    data.projects.forEach(project => {
+                        const option = document.createElement('option');
+                        option.value = project.directory;
+                        option.textContent = project.name;
+                        option.dataset.fullName = project.fullName;
+                        vsProjectSelect.appendChild(option);
+                    });
+                    
+                    vsStatus.innerHTML = `<span style="color: #10b981;">✅ Loaded ${data.projects.length} projects</span>`;
+                    showToast(`Loaded ${data.projects.length} projects`, 'success');
+                } else {
+                    vsStatus.innerHTML = '<span style="color: #f59e0b;">⚠️ No projects found</span>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading projects:', error);
+                
+                let errorMessage = error.message;
+                let toastMessage = 'Error loading projects.';
+                
+                if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                    errorMessage = 'Cannot connect to Visual Studio extension';
+                    toastMessage = 'Cannot connect to Visual Studio. Make sure Visual Studio is running with the File Receiver Extension.';
+                } else if (error.message.includes('NetworkError')) {
+                    errorMessage = 'Network error connecting to Visual Studio extension';
+                    toastMessage = 'Network error. Check if Visual Studio extension is running on localhost:8080.';
+                } else if (error.message.startsWith('HTTP')) {
+                    errorMessage = `Server error: ${error.message}`;
+                    toastMessage = `Visual Studio extension returned an error: ${error.message}`;
+                }
+                
+                vsStatus.innerHTML = `<span style="color: #ef4444;">❌ ${errorMessage}</span>`;
+                showToast(toastMessage, 'error');
+            });
+    }
+    
+    function onVSProjectSelectionChange() {
+        const selectedProject = vsProjectSelect.value;
+        
+        if (selectedProject) {
+            // Save the selected project
+            chrome.storage.sync.set({ selectedVSProject: selectedProject });
+            
+            // Enable folder selection and reset it
+            vsFolderSelect.disabled = false;
+            vsFolderSelect.innerHTML = '<option value="">📁 Project Root</option>';
+            
+            // Auto-load folders for the selected project
+            loadVSFolders(selectedProject);
+        } else {
+            // Clear saved project and disable folder selection
+            chrome.storage.sync.set({ selectedVSProject: '', selectedVSFolder: '' });
+            vsFolderSelect.disabled = true;
+            vsFolderSelect.innerHTML = '<option value="">Select project first...</option>';
+        }
+    }
+    
+    function onVSFolderSelectionChange() {
+        const selectedFolder = vsFolderSelect.value;
+        
+        // Save the selected folder
+        chrome.storage.sync.set({ selectedVSFolder: selectedFolder });
+    }
+    
+    function loadVSFolders(projectDirectory) {
+        if (!vsStatus || !projectDirectory) return;
+        
+        vsStatus.innerHTML = '<span style="color: #059669;">🔄 Loading folders...</span>';
+        
+        const url = `http://localhost:8080/folders?project=${encodeURIComponent(projectDirectory.trim())}`;
+        
+        fetch(url)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .then(data => {
+                vsFolderSelect.innerHTML = '<option value="">📁 Project Root</option>';
+                
+                if (data.folders && data.folders.length > 0) {
+                    // Filter out root folder and sort by path
+                    const sortedFolders = data.folders
+                        .filter(folder => folder.path !== "")
+                        .sort((a, b) => a.path.localeCompare(b.path));
+                    
+                    sortedFolders.forEach(folder => {
+                        const option = document.createElement('option');
+                        option.value = folder.path;
+                        // Create a hierarchical display name
+                        const depth = (folder.path.match(/[/\\]/g) || []).length;
+                        const indent = '  '.repeat(depth);
+                        option.textContent = `${indent}📁 ${folder.name}`;
+                        vsFolderSelect.appendChild(option);
+                    });
+                    
+                    vsStatus.innerHTML = `<span style="color: #10b981;">✅ Loaded folders (${sortedFolders.length} folders)</span>`;
+                } else {
+                    vsStatus.innerHTML = '<span style="color: #f59e0b;">⚠️ No folders found in project</span>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading folders:', error);
+                
+                let errorMessage = error.message;
+                let toastMessage = 'Error loading folders.';
+                
+                if (error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                    errorMessage = 'Cannot connect to Visual Studio extension';
+                    toastMessage = 'Cannot connect to Visual Studio. Make sure Visual Studio is running with the File Receiver Extension.';
+                } else if (error.message.includes('NetworkError')) {
+                    errorMessage = 'Network error connecting to Visual Studio extension';
+                    toastMessage = 'Network error. Check if Visual Studio extension is running on localhost:8080.';
+                } else if (error.message.startsWith('HTTP')) {
+                    errorMessage = `Server error: ${error.message}`;
+                    toastMessage = `Visual Studio extension returned an error: ${error.message}`;
+                }
+                
+                vsStatus.innerHTML = `<span style="color: #ef4444;">❌ ${errorMessage}</span>`;
+                showToast(toastMessage, 'error');
+            });
+    }
 });
