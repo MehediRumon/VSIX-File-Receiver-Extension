@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test UI Changes - File Selection and Validation</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5; 
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        h1 { color: #333; text-align: center; }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #666;
+        }
+        
+        /* File Selection Styles */
+        .file-selection {
+            padding: 0.8rem; 
+            background: #f9fafb; 
+            border-radius: 6px; 
+            border: 1px solid #e5e7eb;
+        }
+        .file-selection h5 {
+            margin: 0 0 0.8rem 0; 
+            color: #374151; 
+            font-size: 0.9rem; 
+            font-weight: 600;
+        }
+        .file-grid {
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 0.5rem;
+        }
+        .file-option {
+            display: flex; 
+            align-items: center; 
+            gap: 0.5rem; 
+            font-size: 0.85rem; 
+            color: #4b5563; 
+            cursor: pointer;
+        }
+        .file-option input[type="checkbox"] {
+            accent-color: #16a34a;
+        }
+        .file-buttons {
+            margin-top: 0.5rem; 
+            display: flex; 
+            gap: 0.5rem;
+        }
+        .file-buttons button {
+            border: none; 
+            padding: 0.3rem 0.6rem; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 0.8rem; 
+            font-weight: 500;
+        }
+        .select-all { background: #10b981; color: white; }
+        .deselect-all { background: #ef4444; color: white; }
+        
+        .send-buttons {
+            display: flex; 
+            gap: 0.3rem; 
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .send-btn {
+            border: none; 
+            padding: 0.4rem 0.6rem; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            font-size: 0.8rem; 
+            flex: 1; 
+            min-width: 80px;
+            color: white;
+        }
+        .send-element { background: #16a34a; }
+        .send-page { background: #2563eb; }
+        .send-step { background: #d97706; }
+        .send-feature { background: #7c3aed; }
+        .send-all { 
+            background: #7c3aed; 
+            padding: 0.8rem; 
+            font-size: 1rem; 
+            width: 100%; 
+            margin-top: 10px;
+        }
+        
+        .validation-demo {
+            margin-top: 20px;
+            padding: 10px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+        }
+        .validation-demo p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+        .error-msg { color: #dc3545; font-weight: bold; }
+        .success-msg { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Test UI Changes - Enhanced VS Integration</h1>
+        
+        <div class="test-section">
+            <h3>1. File Selection Interface</h3>
+            <div class="file-selection">
+                <h5>📋 Select Files to Send:</h5>
+                <div class="file-grid">
+                    <label class="file-option">
+                        <input type="checkbox" id="selectElementFile" checked>
+                        <span>📄 Element File (.cs)</span>
+                    </label>
+                    <label class="file-option">
+                        <input type="checkbox" id="selectPageFile" checked>
+                        <span>📄 Page File (.cs)</span>
+                    </label>
+                    <label class="file-option">
+                        <input type="checkbox" id="selectStepFile" checked>
+                        <span>📄 Step File (.cs)</span>
+                    </label>
+                    <label class="file-option">
+                        <input type="checkbox" id="selectFeatureFile" checked>
+                        <span>📄 Feature File (.feature)</span>
+                    </label>
+                </div>
+                <div class="file-buttons">
+                    <button class="select-all" onclick="selectAll()">✅ Select All</button>
+                    <button class="deselect-all" onclick="deselectAll()">❌ Deselect All</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. Enhanced Send to VS Buttons</h3>
+            <div class="send-buttons">
+                <button class="send-btn send-element" onclick="testValidation('Element')">🚀 Send Element</button>
+                <button class="send-btn send-page" onclick="testValidation('Page')">🚀 Send Page</button>
+                <button class="send-btn send-step" onclick="testValidation('Step')">🚀 Send Step</button>
+                <button class="send-btn send-feature" onclick="testValidation('Feature')">🚀 Send Feature</button>
+            </div>
+            <button class="send-btn send-all" onclick="testValidation('All')">🚀 Send All Files to Visual Studio</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. Mandatory Field Validation Demo</h3>
+            <p><strong>Required Fields:</strong></p>
+            <ul>
+                <li>Menu Name (e.g., "Student Target")</li>
+                <li>Action Name (e.g., "TargetEntry")</li>
+                <li>Root File Name (e.g., "StudentManagement")</li>
+            </ul>
+            
+            <div class="validation-demo" id="validationDemo">
+                <p><strong>Validation Status:</strong></p>
+                <p id="validationResult">Click any Send button above to test validation</p>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Live Collection Feature</h3>
+            <p><strong>When "Enable Collection" is ON:</strong></p>
+            <ul>
+                <li>✅ Automatic file generation when user interacts with page</li>
+                <li>✅ Real-time sync to Visual Studio project</li>
+                <li>✅ Updates Element, Page, and Feature files live</li>
+                <li>✅ Respects selected project and folder</li>
+            </ul>
+            <p><em>Note: This requires Visual Studio with File Receiver Extension running on localhost:8080</em></p>
+        </div>
+        
+        <div class="test-section">
+            <h3>5. Enhanced Hierarchical Folder Display</h3>
+            <p><strong>Folder structure display:</strong></p>
+            <pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 0.85rem;">
+📁 Project Root
+├── 📁 Controllers
+│   ├── 📁 Api
+│   └── 📁 Web
+├── 📁 Models
+│   ├── 📁 Entities
+│   └── 📁 ViewModels
+└── 📁 Views
+    ├── 📁 Shared
+    └── 📁 Student</pre>
+        </div>
+    </div>
+
+    <script>
+        function selectAll() {
+            document.getElementById('selectElementFile').checked = true;
+            document.getElementById('selectPageFile').checked = true;
+            document.getElementById('selectStepFile').checked = true;
+            document.getElementById('selectFeatureFile').checked = true;
+            showMessage('All files selected', 'success');
+        }
+        
+        function deselectAll() {
+            document.getElementById('selectElementFile').checked = false;
+            document.getElementById('selectPageFile').checked = false;
+            document.getElementById('selectStepFile').checked = false;
+            document.getElementById('selectFeatureFile').checked = false;
+            showMessage('All files deselected', 'info');
+        }
+        
+        function testValidation(type) {
+            // Simulate validation check
+            const hasMenuName = Math.random() > 0.5;
+            const hasActionName = Math.random() > 0.5;
+            const hasRootFileName = Math.random() > 0.5;
+            
+            const missingFields = [];
+            if (!hasMenuName) missingFields.push('Menu Name');
+            if (!hasActionName) missingFields.push('Action Name');
+            if (!hasRootFileName) missingFields.push('Root File Name');
+            
+            const resultDiv = document.getElementById('validationResult');
+            
+            if (missingFields.length > 0) {
+                resultDiv.innerHTML = `<span class="error-msg">❌ Missing mandatory fields: ${missingFields.join(', ')}</span>`;
+            } else {
+                // Check file selection for "All" type
+                if (type === 'All') {
+                    const elementChecked = document.getElementById('selectElementFile').checked;
+                    const pageChecked = document.getElementById('selectPageFile').checked;
+                    const stepChecked = document.getElementById('selectStepFile').checked;
+                    const featureChecked = document.getElementById('selectFeatureFile').checked;
+                    
+                    if (!elementChecked && !pageChecked && !stepChecked && !featureChecked) {
+                        resultDiv.innerHTML = `<span class="error-msg">❌ Please select at least one file to send</span>`;
+                        return;
+                    }
+                }
+                
+                resultDiv.innerHTML = `<span class="success-msg">✅ Validation passed! ${type} file(s) ready to send to Visual Studio</span>`;
+            }
+        }
+        
+        function showMessage(message, type) {
+            const demo = document.getElementById('validationDemo');
+            const className = type === 'success' ? 'success-msg' : 'error-msg';
+            demo.innerHTML = `<p><strong>Action Result:</strong></p><p class="${className}">${message}</p>`;
+            
+            setTimeout(() => {
+                document.getElementById('validationResult').innerHTML = 'Click any Send button above to test validation';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

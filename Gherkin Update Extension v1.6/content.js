@@ -185,7 +185,7 @@ function extractFieldValue(param) {
 // === SECTION: Persists steps/locators/methods/param-values to chrome.storage ===
 function saveGherkinStepWithParams(gherkinStep, locatorCode, methodCode) {
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.sync) {
-        chrome.storage.sync.get(['collectedLocators', 'collectedGherkinSteps', 'collectedMethods', 'collectedParamValues'], (result) => {
+        chrome.storage.sync.get(['collectedLocators', 'collectedGherkinSteps', 'collectedMethods', 'collectedParamValues', 'extensionEnabled', 'selectedVSProject', 'selectedVSFolder', 'actionName', 'menuName', 'rootFileName'], (result) => {
             let locators = result.collectedLocators || [];
             let gherkinSteps = result.collectedGherkinSteps || [];
             let methods = result.collectedMethods || [];
@@ -204,9 +204,102 @@ function saveGherkinStepWithParams(gherkinStep, locatorCode, methodCode) {
                 collectedGherkinSteps: gherkinSteps,
                 collectedMethods: methods,
                 collectedParamValues: paramMap,
+            }, () => {
+                // Check if live VS integration is enabled
+                if (result.extensionEnabled && result.selectedVSProject && result.actionName && result.menuName && result.rootFileName) {
+                    console.log('Live VS integration is enabled, sending updated files...');
+                    sendLiveUpdateToVS(result, locators, methods, gherkinSteps);
+                }
             });
         });
     }
+}
+
+// --- Send live updates to Visual Studio when collection is enabled ---
+function sendLiveUpdateToVS(config, locators, methods, gherkinSteps) {
+    const actionName = config.actionName.trim();
+    const menuName = config.menuName.trim();
+    const rootFileName = config.rootFileName.trim();
+    const cleanActionName = actionName.replace(/\s+/g, '');
+    const selectedProject = config.selectedVSProject;
+    const selectedFolder = config.selectedVSFolder || '';
+    
+    // Generate namespace
+    const namespace = generateNamespace(rootFileName);
+    
+    // Prepare file contents
+    const files = {};
+    
+    // Element file
+    const elementClassName = `${cleanActionName}Element`;
+    files[`${elementClassName}.cs`] = locators.length
+        ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+        : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
+    
+    // Page file
+    const pageClassName = `${cleanActionName}Page`;
+    files[`${pageClassName}.cs`] = methods.length
+        ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+        : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
+    
+    // Feature file
+    files[`${cleanActionName}.feature`] = gherkinSteps.length
+        ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
+        : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
+    
+    // Send each file to VS
+    Object.keys(files).forEach((fileName, index) => {
+        setTimeout(() => {
+            sendFileToVS(fileName, files[fileName], selectedFolder, selectedProject)
+                .then(() => {
+                    console.log(`Live update: ${fileName} sent to VS successfully`);
+                })
+                .catch(error => {
+                    console.error(`Live update failed for ${fileName}:`, error);
+                });
+        }, index * 200); // Stagger requests to avoid overwhelming the server
+    });
+}
+
+// --- Helper function to send file to Visual Studio ---
+function sendFileToVS(filename, content, folderPath, projectDirectory) {
+    const fileData = {
+        fileName: filename,
+        content: content
+    };
+    
+    if (folderPath && folderPath.trim() !== '') {
+        fileData.folderPath = folderPath.trim();
+    }
+    
+    if (projectDirectory && projectDirectory.trim() !== '') {
+        fileData.projectDirectory = projectDirectory.trim();
+    }
+    
+    return fetch('http://localhost:8080/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fileData)
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.text();
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    });
+}
+
+// --- Helper function to generate namespace ---
+function generateNamespace(rootFileName) {
+    if (!rootFileName || !rootFileName.trim()) {
+        return 'UMS.UI.Test.ERP.Areas.YourMenugroup.Steps';
+    }
+    
+    const cleanRootFileName = rootFileName.trim().replace(/\s+/g, '');
+    return `UMS.UI.Test.ERP.Areas.${cleanRootFileName}.Steps`;
 }
 
 // --- LOCATOR HIGHLIGHTER: Highlights element(s) by XPath for 3 seconds ---

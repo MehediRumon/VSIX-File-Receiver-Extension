@@ -1903,34 +1903,40 @@ function sendElementToVisualStudio() {
         return;
     }
     
-    statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending Element file to Visual Studio...</span>';
-    
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const rootFileName = result.rootFileName || '';
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        const locators = filterDuplicateLocators(result.collectedLocators || []);
-        const elementClassName = `${cleanActionName}Element`;
-        
-        // Generate namespace
-        const namespace = generateNamespace(rootFileName);
-        
-        // Match the exact format shown in Locator Code section with namespace
-        const content = locators.length
-            ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
-            : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
-        
-        sendFileToVisualStudio(`${elementClassName}.cs`, content, selectedFolder, selectedProject)
-            .then(() => {
-                statusDiv.innerHTML = '<span style="color: #10b981;">✅ Element file sent successfully!</span>';
-                showToast('🚀 Element file sent to Visual Studio!', 'success');
-            })
-            .catch(error => {
-                console.error('Error sending Element file:', error);
-                statusDiv.innerHTML = '<span style="color: #ef4444;">❌ Failed to send Element file</span>';
-                showToast('❌ Failed to send Element file', 'error');
-            });
-    });
+    // Validate mandatory fields
+    validateMandatoryFields()
+        .then(result => {
+            statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending Element file to Visual Studio...</span>';
+            
+            const actionName = result.actionName;
+            const rootFileName = result.rootFileName;
+            const cleanActionName = actionName.replace(/\s+/g, '');
+            const locators = filterDuplicateLocators(result.collectedLocators || []);
+            const elementClassName = `${cleanActionName}Element`;
+            
+            // Generate namespace
+            const namespace = generateNamespace(rootFileName);
+            
+            // Match the exact format shown in Locator Code section with namespace
+            const content = locators.length
+                ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+                : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
+            
+            sendFileToVisualStudio(`${elementClassName}.cs`, content, selectedFolder, selectedProject)
+                .then(() => {
+                    statusDiv.innerHTML = '<span style="color: #10b981;">✅ Element file sent successfully!</span>';
+                    showToast('🚀 Element file sent to Visual Studio!', 'success');
+                })
+                .catch(error => {
+                    console.error('Error sending Element file:', error);
+                    statusDiv.innerHTML = '<span style="color: #ef4444;">❌ Failed to send Element file</span>';
+                    showToast('❌ Failed to send Element file', 'error');
+                });
+        })
+        .catch(error => {
+            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${error.message}</span>`;
+            showToast(error.message, 'error');
+        });
 }
 
 function sendPageToVisualStudio() {
@@ -1946,34 +1952,40 @@ function sendPageToVisualStudio() {
         return;
     }
     
-    statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending Page file to Visual Studio...</span>';
-    
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const rootFileName = result.rootFileName || '';
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        const methods = filterDuplicateStrings(result.collectedMethods || []);
-        const pageClassName = `${cleanActionName}Page`;
-        
-        // Generate namespace
-        const namespace = generateNamespace(rootFileName);
-        
-        // Match the exact format shown in Method Code section with namespace (removed static)
-        const content = methods.length
-            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
-            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
-        
-        sendFileToVisualStudio(`${pageClassName}.cs`, content, selectedFolder, selectedProject)
-            .then(() => {
-                statusDiv.innerHTML = '<span style="color: #10b981;">✅ Page file sent successfully!</span>';
-                showToast('🚀 Page file sent to Visual Studio!', 'success');
-            })
-            .catch(error => {
-                console.error('Error sending Page file:', error);
-                statusDiv.innerHTML = '<span style="color: #ef4444;">❌ Failed to send Page file</span>';
-                showToast('❌ Failed to send Page file', 'error');
-            });
-    });
+    // Validate mandatory fields
+    validateMandatoryFields()
+        .then(result => {
+            statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending Page file to Visual Studio...</span>';
+            
+            const actionName = result.actionName;
+            const rootFileName = result.rootFileName;
+            const cleanActionName = actionName.replace(/\s+/g, '');
+            const methods = filterDuplicateStrings(result.collectedMethods || []);
+            const pageClassName = `${cleanActionName}Page`;
+            
+            // Generate namespace
+            const namespace = generateNamespace(rootFileName);
+            
+            // Match the exact format shown in Method Code section with namespace (removed static)
+            const content = methods.length
+                ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+                : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
+            
+            sendFileToVisualStudio(`${pageClassName}.cs`, content, selectedFolder, selectedProject)
+                .then(() => {
+                    statusDiv.innerHTML = '<span style="color: #10b981;">✅ Page file sent successfully!</span>';
+                    showToast('🚀 Page file sent to Visual Studio!', 'success');
+                })
+                .catch(error => {
+                    console.error('Error sending Page file:', error);
+                    statusDiv.innerHTML = '<span style="color: #ef4444;">❌ Failed to send Page file</span>';
+                    showToast('❌ Failed to send Page file', 'error');
+                });
+        })
+        .catch(error => {
+            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${error.message}</span>`;
+            showToast(error.message, 'error');
+        });
 }
 
 function sendStepToVisualStudio() {
@@ -1989,8 +2001,6 @@ function sendStepToVisualStudio() {
         return;
     }
     
-    statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending Step file to Visual Studio...</span>';
-    
     const stepFileCode = document.getElementById('stepFileCode');
     if (!stepFileCode || !stepFileCode.textContent.trim() || stepFileCode.textContent.includes('Select input types')) {
         statusDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Please generate step file first</span>';
@@ -1998,21 +2008,29 @@ function sendStepToVisualStudio() {
         return;
     }
     
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        
-        sendFileToVisualStudio(`${cleanActionName}Step.cs`, stepFileCode.textContent, selectedFolder, selectedProject)
-            .then(() => {
-                statusDiv.innerHTML = '<span style="color: #10b981;">✅ Step file sent successfully!</span>';
-                showToast('🚀 Step file sent to Visual Studio!', 'success');
-            })
-            .catch(error => {
-                console.error('Error sending Step file:', error);
-                statusDiv.innerHTML = '<span style="color: #ef4444;">❌ Failed to send Step file</span>';
-                showToast('❌ Failed to send Step file', 'error');
-            });
-    });
+    // Validate mandatory fields
+    validateMandatoryFields()
+        .then(result => {
+            statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending Step file to Visual Studio...</span>';
+            
+            const actionName = result.actionName;
+            const cleanActionName = actionName.replace(/\s+/g, '');
+            
+            sendFileToVisualStudio(`${cleanActionName}Step.cs`, stepFileCode.textContent, selectedFolder, selectedProject)
+                .then(() => {
+                    statusDiv.innerHTML = '<span style="color: #10b981;">✅ Step file sent successfully!</span>';
+                    showToast('🚀 Step file sent to Visual Studio!', 'success');
+                })
+                .catch(error => {
+                    console.error('Error sending Step file:', error);
+                    statusDiv.innerHTML = '<span style="color: #ef4444;">❌ Failed to send Step file</span>';
+                    showToast('❌ Failed to send Step file', 'error');
+                });
+        })
+        .catch(error => {
+            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${error.message}</span>`;
+            showToast(error.message, 'error');
+        });
 }
 
 function sendFeatureToVisualStudio() {
@@ -2028,29 +2046,35 @@ function sendFeatureToVisualStudio() {
         return;
     }
     
-    statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending Feature file to Visual Studio...</span>';
-    
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const menuName = result.menuName || actionName;
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
-        
-        const content = gherkinSteps.length
-            ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
-            : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
-        
-        sendFileToVisualStudio(`${cleanActionName}.feature`, content, selectedFolder, selectedProject)
-            .then(() => {
-                statusDiv.innerHTML = '<span style="color: #10b981;">✅ Feature file sent successfully!</span>';
-                showToast('🚀 Feature file sent to Visual Studio!', 'success');
-            })
-            .catch(error => {
-                console.error('Error sending Feature file:', error);
-                statusDiv.innerHTML = '<span style="color: #ef4444;">❌ Failed to send Feature file</span>';
-                showToast('❌ Failed to send Feature file', 'error');
-            });
-    });
+    // Validate mandatory fields
+    validateMandatoryFields()
+        .then(result => {
+            statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending Feature file to Visual Studio...</span>';
+            
+            const actionName = result.actionName;
+            const menuName = result.menuName;
+            const cleanActionName = actionName.replace(/\s+/g, '');
+            const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
+            
+            const content = gherkinSteps.length
+                ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
+                : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
+            
+            sendFileToVisualStudio(`${cleanActionName}.feature`, content, selectedFolder, selectedProject)
+                .then(() => {
+                    statusDiv.innerHTML = '<span style="color: #10b981;">✅ Feature file sent successfully!</span>';
+                    showToast('🚀 Feature file sent to Visual Studio!', 'success');
+                })
+                .catch(error => {
+                    console.error('Error sending Feature file:', error);
+                    statusDiv.innerHTML = '<span style="color: #ef4444;">❌ Failed to send Feature file</span>';
+                    showToast('❌ Failed to send Feature file', 'error');
+                });
+        })
+        .catch(error => {
+            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${error.message}</span>`;
+            showToast(error.message, 'error');
+        });
 }
 
 // Project and folder selection functionality
@@ -2360,6 +2384,45 @@ function sendFileToVisualStudio(filename, content, folderPath = null, projectDir
     });
 }
 
+// Validation function for mandatory fields
+function validateMandatoryFields() {
+    return new Promise((resolve, reject) => {
+        getStoredData((result) => {
+            const actionName = result.actionName || '';
+            const menuName = result.menuName || '';
+            const rootFileName = result.rootFileName || '';
+            
+            const missingFields = [];
+            
+            if (!menuName.trim()) {
+                missingFields.push('Menu Name');
+            }
+            if (!actionName.trim()) {
+                missingFields.push('Action Name');
+            }
+            if (!rootFileName.trim()) {
+                missingFields.push('Root File Name');
+            }
+            
+            if (missingFields.length > 0) {
+                reject(new Error(`Missing mandatory fields: ${missingFields.join(', ')}`));
+            } else {
+                resolve(result);
+            }
+        });
+    });
+}
+
+// File selection helper functions
+function getSelectedFiles() {
+    return {
+        element: document.getElementById('selectElementFile')?.checked || false,
+        page: document.getElementById('selectPageFile')?.checked || false,
+        step: document.getElementById('selectStepFile')?.checked || false,
+        feature: document.getElementById('selectFeatureFile')?.checked || false
+    };
+}
+
 function sendAllToVisualStudio() {
     const projectSelect = document.getElementById('projectSelect');
     const folderSelect = document.getElementById('folderSelect');
@@ -2373,85 +2436,107 @@ function sendAllToVisualStudio() {
         return;
     }
     
-    statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending files to Visual Studio...</span>';
-    
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const menuName = result.menuName || actionName;
-        const rootFileName = result.rootFileName || '';
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        
-        // Generate namespace
-        const namespace = generateNamespace(rootFileName);
-        
-        // Create the files content
-        const files = {};
-        
-        // Element file
-        const locators = filterDuplicateLocators(result.collectedLocators || []);
-        const elementClassName = `${cleanActionName}Element`;
-        files[`${elementClassName}.cs`] = locators.length
-            ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
-            : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
-        
-        // Page file
-        const methods = filterDuplicateStrings(result.collectedMethods || []);
-        const pageClassName = `${cleanActionName}Page`;
-        files[`${pageClassName}.cs`] = methods.length
-            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
-            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
-        
-        // Step file
-        const stepFileCode = document.getElementById('stepFileCode');
-        if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
-            files[`${cleanActionName}Step.cs`] = stepFileCode.textContent;
-        } else {
-            files[`${cleanActionName}Step.cs`] = `// Please generate step file first`;
-        }
-        
-        // Feature file
-        const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
-        files[`${cleanActionName}.feature`] = gherkinSteps.length
-            ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
-            : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
-        
-        // Send files one by one
-        const fileNames = Object.keys(files);
-        let fileIndex = 0;
-        let successCount = 0;
-        let errorCount = 0;
-        
-        const sendNext = () => {
-            if (fileIndex < fileNames.length) {
-                const fileName = fileNames[fileIndex];
-                const fileContent = files[fileName];
-                
-                sendFileToVisualStudio(fileName, fileContent, selectedFolder, selectedProject)
-                    .then(() => {
-                        successCount++;
-                        fileIndex++;
-                        sendNext();
-                    })
-                    .catch(error => {
-                        console.error(`Error sending ${fileName}:`, error);
-                        errorCount++;
-                        fileIndex++;
-                        sendNext();
-                    });
-            } else {
-                // All files processed
-                if (errorCount === 0) {
-                    statusDiv.innerHTML = `<span style="color: #10b981;">✅ Successfully sent ${successCount} files to Visual Studio!</span>`;
-                    showToast(`🚀 Successfully sent ${successCount} files to Visual Studio!`, 'success');
+    // Validate mandatory fields first
+    validateMandatoryFields()
+        .then(result => {
+            const selectedFiles = getSelectedFiles();
+            const hasAnyFileSelected = Object.values(selectedFiles).some(selected => selected);
+            
+            if (!hasAnyFileSelected) {
+                showToast('Please select at least one file to send', 'error');
+                return;
+            }
+            
+            statusDiv.innerHTML = '<span style="color: #7c3aed;">🚀 Sending selected files to Visual Studio...</span>';
+            
+            const actionName = result.actionName;
+            const menuName = result.menuName;
+            const rootFileName = result.rootFileName;
+            const cleanActionName = actionName.replace(/\s+/g, '');
+            
+            // Generate namespace
+            const namespace = generateNamespace(rootFileName);
+            
+            // Create the files content based on selection
+            const files = {};
+            
+            // Element file
+            if (selectedFiles.element) {
+                const locators = filterDuplicateLocators(result.collectedLocators || []);
+                const elementClassName = `${cleanActionName}Element`;
+                files[`${elementClassName}.cs`] = locators.length
+                    ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+                    : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
+            }
+            
+            // Page file
+            if (selectedFiles.page) {
+                const methods = filterDuplicateStrings(result.collectedMethods || []);
+                const pageClassName = `${cleanActionName}Page`;
+                files[`${pageClassName}.cs`] = methods.length
+                    ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+                    : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
+            }
+            
+            // Step file
+            if (selectedFiles.step) {
+                const stepFileCode = document.getElementById('stepFileCode');
+                if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
+                    files[`${cleanActionName}Step.cs`] = stepFileCode.textContent;
                 } else {
-                    statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Sent ${successCount} files, ${errorCount} failed</span>`;
-                    showToast(`Sent ${successCount} files, ${errorCount} failed`, 'warning');
+                    files[`${cleanActionName}Step.cs`] = `// Please generate step file first`;
                 }
             }
-        };
-        
-        sendNext();
-    });
+            
+            // Feature file
+            if (selectedFiles.feature) {
+                const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
+                files[`${cleanActionName}.feature`] = gherkinSteps.length
+                    ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
+                    : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
+            }
+            
+            // Send files one by one
+            const fileNames = Object.keys(files);
+            let fileIndex = 0;
+            let successCount = 0;
+            let errorCount = 0;
+            
+            const sendNext = () => {
+                if (fileIndex < fileNames.length) {
+                    const fileName = fileNames[fileIndex];
+                    const fileContent = files[fileName];
+                    
+                    sendFileToVisualStudio(fileName, fileContent, selectedFolder, selectedProject)
+                        .then(() => {
+                            successCount++;
+                            fileIndex++;
+                            sendNext();
+                        })
+                        .catch(error => {
+                            console.error(`Error sending ${fileName}:`, error);
+                            errorCount++;
+                            fileIndex++;
+                            sendNext();
+                        });
+                } else {
+                    // All files processed
+                    if (errorCount === 0) {
+                        statusDiv.innerHTML = `<span style="color: #10b981;">✅ Successfully sent ${successCount} files to Visual Studio!</span>`;
+                        showToast(`🚀 Successfully sent ${successCount} files to Visual Studio!`, 'success');
+                    } else {
+                        statusDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Sent ${successCount} files, ${errorCount} failed</span>`;
+                        showToast(`Sent ${successCount} files, ${errorCount} failed`, 'warning');
+                    }
+                }
+            };
+            
+            sendNext();
+        })
+        .catch(error => {
+            statusDiv.innerHTML = `<span style="color: #ef4444;">❌ ${error.message}</span>`;
+            showToast(error.message, 'error');
+        });
 }
 
 // Make toggleSection function available globally for HTML onclick handlers
@@ -2549,6 +2634,23 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Folder search functionality
     document.getElementById('folderSearch')?.addEventListener('input', (e) => filterFolders(e.target.value));
+    
+    // File selection functionality
+    document.getElementById('selectAllFiles')?.addEventListener('click', () => {
+        document.getElementById('selectElementFile').checked = true;
+        document.getElementById('selectPageFile').checked = true;
+        document.getElementById('selectStepFile').checked = true;
+        document.getElementById('selectFeatureFile').checked = true;
+        showToast('All files selected', 'success');
+    });
+    
+    document.getElementById('deselectAllFiles')?.addEventListener('click', () => {
+        document.getElementById('selectElementFile').checked = false;
+        document.getElementById('selectPageFile').checked = false;
+        document.getElementById('selectStepFile').checked = false;
+        document.getElementById('selectFeatureFile').checked = false;
+        showToast('All files deselected', 'info');
+    });
 });
 
 function updateFileNamesPreview() {
