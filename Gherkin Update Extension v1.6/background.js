@@ -11,7 +11,7 @@ chrome.storage.sync.get(['extensionEnabled', 'elementClassName', 'menuName', 'pa
     pageClassName = result.pageClassName || pageClassName;
 });
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'toggle') {
         isEnabled = message.value;
     } else if (message.action === 'setClassName') {
@@ -32,8 +32,41 @@ chrome.runtime.onMessage.addListener((message) => {
         }, () => {
             chrome.storage.local.set({ urls: [], actions: [] });
         });
+    } else if (message.action === 'downloadToPath') {
+        // Handle custom path downloads
+        const { filename, content, downloadPath } = message;
+        
+        if (downloadPath && downloadPath.trim().length > 0) {
+            // Create blob URL for the content
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            // Chrome Downloads API can only download to Downloads folder or subfolders
+            // So we'll use saveAs to let user choose the location
+            chrome.downloads.download({
+                url: url,
+                filename: filename, // Just the filename, not the full path
+                saveAs: true // This will open the save dialog with the custom path suggestion
+            }, (downloadId) => {
+                if (chrome.runtime.lastError) {
+                    console.error('Download failed:', chrome.runtime.lastError.message);
+                    sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                } else {
+                    console.log('File download started with save dialog');
+                    sendResponse({ success: true, saveAs: true, suggestedPath: downloadPath });
+                }
+                
+                // Clean up the blob URL
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                }, 1000);
+            });
+            
+            return true; // Keep message channel open for async response
+        } else {
+            sendResponse({ success: false, error: 'No download path specified' });
+        }
     }
-
 });
 
 function extractAction(url) {

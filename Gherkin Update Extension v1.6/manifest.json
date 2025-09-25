@@ -1,12 +1,13 @@
 {
     "manifest_version": 3,
     "name": "Gherkin & XHR Logger",
-    "version": "4.2.0",
+    "version": "1.6.0",
     "description": "Collect Gherkin steps, locators, and log XHR requests.",
     "permissions": [
         "storage",
         "scripting",
-        "webRequest"
+        "webRequest",
+        "downloads"
     ],
     "host_permissions": [
         "<all_urls>"

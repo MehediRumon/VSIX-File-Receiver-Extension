@@ -52,8 +52,6 @@
             max-width: 1000px;
             margin: auto;
             padding: 2rem 1rem 1rem 1rem;
-            max-height: 80vh;
-            overflow-y: auto;
         }
 
         .section {
@@ -137,6 +135,15 @@
             border: 1px solid #334155;
         }
 
+        /* Ensure step file code preserves formatting */
+        #stepFileCode {
+            white-space: pre-wrap !important;
+            overflow-wrap: break-word;
+            font-family: 'Fira Code', 'Consolas', 'Monaco', monospace !important;
+            line-height: 1.4;
+            tab-size: 4;
+        }
+
         /* Special styling for payload sections */
         #xhrLogs {
             line-height: 1.4;
@@ -184,6 +191,47 @@
             background: #222b3c;
             color: #e2e8f0;
             border: 1px solid #64748b;
+        }
+
+        /* Enhanced folder select styling for hierarchy */
+        #folderSelect {
+            font-family: monospace;
+            font-size: 0.9rem;
+            white-space: pre;
+        }
+        
+        #folderSelect option {
+            font-family: monospace;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        /* Folder search input styling */
+        #folderSearch {
+            transition: border-color 0.2s ease;
+        }
+        
+        #folderSearch:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        body.dark-mode #folderSearch {
+            background: #374151;
+            color: #f1f5f9;
+            border-color: #6b7280;
+        }
+        
+        body.dark-mode #folderSearch:focus {
+            border-color: #6366f1;
+        }
+        
+        #folderSearchInfo {
+            min-height: 1rem;
+        }
+        
+        body.dark-mode #folderSearchInfo {
+            color: #9ca3af;
         }
 
         .toast-message {
@@ -424,12 +472,15 @@
 
         .modal-content {
             background-color: #ffffff;
-            margin: 5% auto;
+            margin: 2% auto;
             border-radius: 12px;
             max-width: 600px;
             width: 90%;
+            max-height: 95vh;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             animation: modalSlideIn 0.3s ease;
+            display: flex;
+            flex-direction: column;
         }
 
         body.dark-mode .modal-content {
@@ -453,7 +504,8 @@
             justify-content: space-between;
             align-items: center;
             padding: 1.5rem;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;  
+            flex-shrink: 0;
         }
 
         body.dark-mode .modal-header {
@@ -484,8 +536,40 @@
 
         .modal-body {
             padding: 1.5rem;
-            max-height: 70vh;
             overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        /* Custom scrollbar for modal body */
+        .modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .modal-body::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        
+        .modal-body::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        body.dark-mode .modal-body::-webkit-scrollbar-track {
+            background: #334155;
+        }
+        
+        body.dark-mode .modal-body::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+        
+        body.dark-mode .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
         }
 
         .download-section h4 {
@@ -517,23 +601,6 @@
         #fileNamesPreview {
             line-height: 1.8;
         }
-
-        /* Enhanced folder select styling for hierarchy */
-        #folderSelect {
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
-            font-size: 0.9rem !important;
-            line-height: 1.4 !important;
-        }
-
-        #folderSelect option {
-            padding: 4px 8px !important;
-            white-space: pre !important;
-        }
-
-        /* Ensure proper spacing for hierarchical display */
-        .download-section select {
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-        }
     </style>
 </head>
 <body>
@@ -547,6 +614,20 @@
         </div>
     </header>
     <main>
+        <section class="section">
+            <h2>ℹ️ Configuration Info</h2>
+            <div style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
+                <div style="margin-bottom: 0.5em;">
+                    <strong>Namespace:</strong> <span id="namespaceInfo">UMS.UI.Test.ERP.Areas.YourMenugroup.Steps</span>
+                </div>
+                <div style="margin-bottom: 0.5em;">
+                    <strong>Action Name:</strong> <span id="actionNameInfo">Not set</span>
+                </div>
+                <div style="margin-bottom: 0.5em;">
+                    <strong>Root File Name:</strong> <span id="rootFileNameInfo">Not set</span>
+                </div>
+            </div>
+        </section>
         <section class="section">
             <h2>
                 📌 Locators
@@ -689,66 +770,69 @@
             <div class="modal-body">
                 <p style="margin-bottom: 1rem; color: #666;">Choose which files to download based on your action name:</p>
                 
+                <div class="download-section">
+                    <h4 style="margin-bottom: 0.5rem; color: #333;">Individual Files:</h4>
+                    <div class="download-buttons" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
+                        <button id="downloadElementBtn" class="download-btn" style="background: #22c55e; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📄 Element.cs
+                        </button>
+                        <button id="downloadPageBtn" class="download-btn" style="background: #3b82f6; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📄 Page.cs
+                        </button>
+                        <button id="downloadStepBtn" class="download-btn" style="background: #f59e0b; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📄 Step.cs
+                        </button>
+                        <button id="downloadFeatureBtn" class="download-btn" style="background: #8b5cf6; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            📄 .feature
+                        </button>
+                    </div>
+                    
+                    <h4 style="margin-bottom: 0.5rem; color: #333;">Bulk Download:</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
+                        <button id="downloadAllIndividualBtn" class="download-btn" style="background: #06b6d4; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem;">
+                            📄 Download All Individual
+                        </button>
+                        <button id="downloadAllZipBtn" class="download-btn" style="background: #ef4444; color: white; border: none; padding: 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem;">
+                            📦 Download All as ZIP
+                        </button>
+                    </div>
+                </div>
+                
                 <!-- Project and Folder Selection Section -->
                 <div class="download-section" style="margin-bottom: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 6px; border-left: 4px solid #7c3aed;">
                     <h4 style="margin-bottom: 0.75rem; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between;" onclick="toggleSection('vsProjectSection')">
                         📁 Send to Visual Studio Project:
                         <span id="vsProjectToggle" style="font-size: 0.8em; transition: transform 0.3s ease;">▼</span>
                     </h4>
-                    <div id="vsProjectSection" style="transition: all 0.3s ease;"
-                    
+                    <div id="vsProjectSection" style="transition: all 0.3s ease;">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                        <div>
-                            <label for="projectSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Project:</label>
-                            <select id="projectSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; background: white;">
-                                <option value="">Select a project...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="folderSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Folder:</label>
-                            <select id="folderSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; background: white;" disabled>
-                                <option value="">Select project first...</option>
-                            </select>
+                            <div>
+                                <label for="projectSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Project:</label>
+                                <select id="projectSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; background: white;">
+                                    <option value="">Select a project...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="folderSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Folder:</label>
+                                <input type="text" id="folderSearch" placeholder="🔍 Search folders..." style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: 0.5rem; background: white; font-size: 0.9rem;" disabled>
+                                <select id="folderSelect" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; background: white;" disabled>
+                                    <option value="">Select project first...</option>
+                                </select>
+                                <div id="folderSearchInfo" style="font-size: 0.8rem; color: #6b7280; margin-top: 0.25rem;"></div>
+                            </div>
                         </div>
                         
-                        <div style="margin-top: 1rem;">
+                        <div style="margin-bottom: 1rem;">
                             <button id="loadProjectsBtn" style="background: #6366f1; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
                                 🔄 Load Projects
                             </button>
                         </div>
                         
-                        <div id="projectStatus" style="margin-top: 0.5rem; font-size: 0.9rem;"></div>
-                    </div>
-                </div>
-                
-                <div class="download-section">
-                    <h4 style="margin-bottom: 0.5rem; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between;" onclick="toggleSection('individualFilesSection')">
-                        Individual Files:
-                        <span id="individualFilesToggle" style="font-size: 0.8em; transition: transform 0.3s ease;">▼</span>
-                    </h4>
-                    <div id="individualFilesSection" style="transition: all 0.3s ease;"
-                        <!-- Individual Download Buttons - Single Line -->
-                        <div style="margin-bottom: 1rem;">
-                            <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Individual Download:</h5>
-                            <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;">
-                                <button id="downloadElementBtn" class="download-btn" style="background: #22c55e; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
-                                    📄 Element.cs
-                                </button>
-                                <button id="downloadPageBtn" class="download-btn" style="background: #3b82f6; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
-                                    📄 Page.cs
-                                </button>
-                                <button id="downloadStepBtn" class="download-btn" style="background: #f59e0b; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
-                                    📄 Step.cs
-                                </button>
-                                <button id="downloadFeatureBtn" class="download-btn" style="background: #8b5cf6; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
-                                    📄 .feature
-                                </button>
-                            </div>
-                        </div>
+                        <div id="projectStatus" style="margin-bottom: 1rem; font-size: 0.9rem;"></div>
                         
-                        <!-- Individual Send Buttons - Single Line -->
+                        <!-- Individual Send Buttons -->
                         <div style="margin-bottom: 1rem;">
-                            <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Individual Send to VS:</h5>
+                            <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Send Individual Files to VS:</h5>
                             <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;">
                                 <button id="sendElementBtn" class="send-individual-btn" style="background: #16a34a; color: white; border: none; padding: 0.4rem 0.6rem; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; min-width: 80px;">
                                     🚀 Send Element
@@ -765,31 +849,12 @@
                             </div>
                         </div>
                         
-                        <h4 style="margin-bottom: 0.5rem; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: space-between;" onclick="toggleSection('bulkActionsSection')">
-                            Bulk Actions:
-                            <span id="bulkActionsToggle" style="font-size: 0.8em; transition: transform 0.3s ease;">▼</span>
-                        </h4>
-                        <div id="bulkActionsSection" style="transition: all 0.3s ease;"
-                            <!-- Bulk Download Button -->
-                            <div style="margin-bottom: 0.8rem;">
-                                <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Bulk Download:</h5>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <button id="downloadAllIndividualBtn" class="download-btn" style="background: #06b6d4; color: white; border: none; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; flex: 1;">
-                                        📄 Download All Individual
-                                    </button>
-                                    <button id="downloadAllZipBtn" class="download-btn" style="background: #ef4444; color: white; border: none; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; flex: 1;">
-                                        📦 Download All as ZIP
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Bulk Send Button -->
-                            <div style="margin-bottom: 1rem;">
-                                <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Bulk Send:</h5>
-                                <button id="sendToVisualStudioBtn" class="download-btn" style="background: #7c3aed; color: white; border: none; padding: 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; width: 100%;">
-                                    🚀 Send All Files to Visual Studio
-                                </button>
-                            </div>
+                        <!-- Bulk Send Button -->
+                        <div style="margin-bottom: 1rem;">
+                            <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Send All Files:</h5>
+                            <button id="sendToVisualStudioBtn" class="download-btn" style="background: #7c3aed; color: white; border: none; padding: 0.8rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; width: 100%;">
+                                🚀 Send All Files to Visual Studio
+                            </button>
                         </div>
                     </div>
                 </div>

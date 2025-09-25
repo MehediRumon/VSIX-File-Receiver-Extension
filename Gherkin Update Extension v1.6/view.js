@@ -24,11 +24,119 @@ function filterDuplicateLocators(locators) {
 
 // Helper function to update Gherkin steps with current action name
 
+function updateConfigurationInfo() {
+    console.log('updateConfigurationInfo called');
+    getStoredData((result) => {
+        const actionName = result.actionName || '';
+        const rootFileName = result.rootFileName || '';
+        
+        console.log('Configuration data:', { actionName, rootFileName });
+        
+        // Update configuration info
+        const actionNameInfo = document.getElementById('actionNameInfo');
+        const rootFileNameInfo = document.getElementById('rootFileNameInfo');
+        const namespaceInfo = document.getElementById('namespaceInfo');
+        
+        if (actionNameInfo) {
+            actionNameInfo.textContent = actionName || 'Not set';
+            console.log('Action name set to:', actionNameInfo.textContent);
+        }
+        
+        if (rootFileNameInfo) {
+            rootFileNameInfo.textContent = rootFileName || 'Not set';
+            console.log('Root file name set to:', rootFileNameInfo.textContent);
+        }
+        
+        if (namespaceInfo) {
+            const namespace = generateNamespace(rootFileName);
+            namespaceInfo.textContent = namespace;
+            console.log('Namespace generated:', namespace);
+        }
+        
+        console.log('Configuration info updated');
+        
+        // Also update Locator and Method sections to maintain namespace
+        updateCodeSectionsWithNamespace(result);
+        
+        // Also update file names preview
+        updateFileNamesPreview();
+    });
+}
+
+function updateCodeSectionsWithNamespace(result) {
+    const actionName = result.actionName || '';
+    const rootFileName = result.rootFileName || '';
+    const locators = filterDuplicateLocators(result.collectedLocators || []);
+    const methods = filterDuplicateStrings(result.collectedMethods || []);
+    
+    // Generate class names based on action name
+    let className, pageClassName;
+    if (actionName && actionName.trim()) {
+        const cleanActionName = actionName.replace(/\s+/g, '');
+        className = `${cleanActionName}Element`;
+        pageClassName = `${cleanActionName}Page`;
+    } else {
+        className = result.elementClassName || 'DefaultElementClass';
+        pageClassName = result.pageClassName || 'DefaultPageClass';
+    }
+    
+    const namespace = generateNamespace(rootFileName);
+    console.log('Updating code sections with namespace:', namespace);
+    
+    // Update locator code with namespace
+    const locatorElement = document.getElementById('locatorCode');
+    if (locatorElement) {
+        const locatorContent = locators.length
+            ? `namespace ${namespace}\n{\n    public static class ${className}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public static class ${className}\n    {\n        // No locators collected\n    }\n}`;
+        locatorElement.innerText = locatorContent;
+        console.log('Locator code updated with namespace');
+    }
+    
+    // Update method code with namespace
+    const methodElement = document.getElementById('methodCode');
+    if (methodElement) {
+        const methodContent = methods.length
+            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
+        methodElement.innerText = methodContent;
+        console.log('Method code updated with namespace');
+    }
+}
+
+function generateNamespace(rootFileName) {
+    if (!rootFileName || !rootFileName.trim()) {
+        return 'YourNamespacehere';
+    }
+    
+    const trimmedRoot = rootFileName.trim();
+    
+    // If it already contains the full UMS.UI.Test.ERP.Areas path, use as-is but clean it
+    if (trimmedRoot.includes('UMS.UI.Test.ERP.Areas')) {
+        // Remove any potential duplications and clean up
+        let cleanNamespace = trimmedRoot;
+        // Remove multiple occurrences of the base path
+        cleanNamespace = cleanNamespace.replace(/UMS\.UI\.Test\.ERP\.Areas\.UMS\.UI\.Test\.ERP\.Areas\./g, 'UMS.UI.Test.ERP.Areas.');
+        // Remove .Steps if present (we'll add it separately for step files)
+        cleanNamespace = cleanNamespace.replace(/\.Steps$/, '');
+        return cleanNamespace;
+    }
+    
+    // If it contains dots but not the full path, assume it's a custom namespace
+    if (trimmedRoot.includes('.')) {
+        return trimmedRoot.replace(/\.Steps$/, ''); // Remove .Steps if present
+    }
+    
+    // Otherwise, treat as area name and build full namespace
+    const cleanRootFileName = trimmedRoot.replace(/\s+/g, '').replace(/[^a-zA-Z0-9\.]/g, '');
+    return `UMS.UI.Test.ERP.Areas.${cleanRootFileName}`;
+}
+
 function getStoredData(callback) {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
         chrome.storage.sync.get([
             'collectedLocators', 'collectedGherkinSteps', 'collectedMethods',
-            'elementClassName', 'pageClassName', 'actionName', 'collectedParamValues', 'menuName'
+            'elementClassName', 'pageClassName', 'actionName', 'collectedParamValues', 'menuName', 'rootFileName'
         ], callback);
     } else {
         // Fallback to localStorage for testing
@@ -40,7 +148,8 @@ function getStoredData(callback) {
             pageClassName: JSON.parse(localStorage.getItem('pageClassName') || '"DefaultPageClass"'),
             actionName: JSON.parse(localStorage.getItem('actionName') || '""'),
             collectedParamValues: JSON.parse(localStorage.getItem('collectedParamValues') || '{}'),
-            menuName: JSON.parse(localStorage.getItem('menuName') || '"ExportedSheet"')
+            menuName: JSON.parse(localStorage.getItem('menuName') || '"ExportedSheet"'),
+            rootFileName: JSON.parse(localStorage.getItem('rootFileName') || '""')
         };
         callback(result);
     }
@@ -54,6 +163,10 @@ getStoredData((result) => {
     const methods = filterDuplicateStrings(result.collectedMethods || []);
     const actionName = result.actionName || '';
     const menuName = result.menuName || '';
+    const rootFileName = result.rootFileName || '';
+    
+    // Update configuration info persistently
+    updateConfigurationInfo();
     
     // Generate class names based on action name
     let className, pageClassName;
@@ -70,10 +183,15 @@ getStoredData((result) => {
     const gherkinElement = document.getElementById('gherkinCode');
     const methodElement = document.getElementById('methodCode');
     
+    // Generate namespace using the helper function
+    const namespace = generateNamespace(rootFileName);
+    
+    // Update locator code with namespace
     if (locatorElement) {
-        locatorElement.innerText = locators.length
-            ? `public static class ${className} {\n${locators.map(l => '    ' + l).join('\n')}\n}`
-            : 'No locators collected.';
+        const locatorContent = locators.length
+            ? `namespace ${namespace}\n{\n    public static class ${className}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public static class ${className}\n    {\n        // No locators collected\n    }\n}`;
+        locatorElement.innerText = locatorContent;
     }
 
     if (gherkinElement) {
@@ -82,10 +200,12 @@ getStoredData((result) => {
             : 'No Gherkin steps collected.';
     }
 
+    // Update method code with namespace
     if (methodElement) {
-        methodElement.innerText = methods.length
-            ? `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '    ' + m).join('\n')}\n}`
-            : 'No methods collected.';
+        const methodContent = methods.length
+            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
+        methodElement.innerText = methodContent;
     }
 
     console.log('Gherkin steps found:', gherkinSteps.length); // Debug log
@@ -96,6 +216,10 @@ getStoredData((result) => {
     // Initialize Excel values display - force fresh data load
     setTimeout(() => {
         refreshExcelValues();
+        // Also ensure configuration info is updated and persists
+        updateConfigurationInfo();
+        // Update it again after a short delay to ensure it sticks
+        setTimeout(updateConfigurationInfo, 1000);
     }, 500);
     
     // Force update all sections when page loads
@@ -1096,7 +1220,20 @@ function generateStepFile(gherkinSteps, pageClassName) {
     });
     
     generateStepFileCode(stepConfigurations, pageClassName).then(stepFileCode => {
-        document.getElementById('stepFileCode').innerText = stepFileCode;
+        console.log('Generated step file code length:', stepFileCode.length);
+        console.log('First 200 characters:', stepFileCode.substring(0, 200));
+        console.log('Contains line breaks:', stepFileCode.includes('\n'));
+        
+        const stepFileElement = document.getElementById('stepFileCode');
+        if (stepFileElement) {
+            // Use textContent to preserve formatting and add explicit line breaks
+            stepFileElement.textContent = stepFileCode;
+            // Also ensure the element has the right CSS for preserving whitespace
+            stepFileElement.style.whiteSpace = 'pre-wrap';
+            stepFileElement.style.fontFamily = 'monospace';
+            
+            console.log('Set step file content, element text length:', stepFileElement.textContent.length);
+        }
         showToast('Step file generated successfully!', 'success');
     }).catch(error => {
         console.error('Error generating step file:', error);
@@ -1106,16 +1243,23 @@ function generateStepFile(gherkinSteps, pageClassName) {
 
 function generateStepFileCode(stepConfigurations, pageClassName) {
     return new Promise(async (resolve) => {
-        // Extract menu name from pageClassName (remove "Page" suffix)
-        let stepClassName = pageClassName.replace('Page', 'Step');
-        
-        // Count multi-select inputs
-        const multiSelectCount = stepConfigurations.filter(config => config.inputType === 'multi_select').length;
-        
-        const imports = `using UMS.UI.Test.BusinessModel.Helper;
+        // Get root file name for namespace from storage
+        getStoredData((result) => {
+            const rootFileName = result.rootFileName || '';
+            
+            // Extract menu name from pageClassName (remove "Page" suffix)
+            let stepClassName = pageClassName.replace('Page', 'Step');
+            
+            // Count multi-select inputs
+            const multiSelectCount = stepConfigurations.filter(config => config.inputType === 'multi_select').length;
+            
+            // Generate namespace using helper function
+            const namespace = generateNamespace(rootFileName);
+            
+            const imports = `using UMS.UI.Test.BusinessModel.Helper;
 using UMS.UI.Test.ERP.Areas.Common;
 
-namespace UMS.UI.Test.ERP.Areas.YourMenugroup.Steps
+namespace ${namespace}.Steps
 {
     [Binding]
     public class ${stepClassName}(${pageClassName} page)
@@ -1151,24 +1295,43 @@ namespace UMS.UI.Test.ERP.Areas.YourMenugroup.Steps
 `;
         }
 
-        let methods = '';
+        processSteps();
         
-        // Process each step configuration asynchronously
-        for (const config of stepConfigurations) {
-            const method = await generateMethodFromStep(config.step, config.inputType, multiSelectCount >= 2);
-            if (method) {
-                methods += '\n' + method + '\n';
+        async function processSteps() {
+            let methods = '';
+            
+            // Process each step configuration asynchronously
+            for (let i = 0; i < stepConfigurations.length; i++) {
+                const config = stepConfigurations[i];
+                const method = await generateMethodFromStep(config.step, config.inputType, multiSelectCount >= 2, i);
+                if (method) {
+                    if (methods) {
+                        methods += '\n\n' + method;
+                    } else {
+                        methods = method;
+                    }
+                }
             }
+            
+            const closing = `    }
+}`;
+            
+            // Ensure proper line breaks by explicitly joining with newlines
+            const finalCode = [
+                imports.trim(),
+                helperMethods.trim(),
+                methods,
+                closing.trim()
+            ].filter(part => part.length > 0).join('\n\n');
+            
+            resolve(finalCode);
         }
         
-        const closing = `    }
-}`;
-        
-        resolve(imports + helperMethods + methods + closing);
+        }); // End of getStoredData callback
     });
 }
 
-function generateMethodFromStep(step, inputType, useMultiSelectHelper = false) {
+function generateMethodFromStep(step, inputType, useMultiSelectHelper = false, stepIndex = -1) {
     return new Promise(async (resolve) => {
         // For custom step patterns, add parameter placeholders if missing
         let processedStep = step;
@@ -1192,7 +1355,9 @@ function generateMethodFromStep(step, inputType, useMultiSelectHelper = false) {
         
         const methodName = extractMethodNameFromStep(processedStep);
         const paramName = extractParamNameFromStep(processedStep);
-        const elementName = await extractElementNameFromStep(processedStep);
+        const elementName = await extractElementNameFromStep(processedStep, stepIndex);
+        
+        console.log(`Step ${stepIndex}: "${step}" -> Method: ${methodName}, Element: ${elementName}`);
         
         // Convert step format for SpecFlow attribute: remove "When " prefix and replace "<parameter>" with {string}
         const specFlowStep = processedStep.replace(/^When\s+/, '').replace(/"<[^>]+>"/g, '{string}').trim();
@@ -1346,7 +1511,7 @@ function extractParamNameFromStep(step) {
     return 'value';
 }
 
-function extractElementNameFromStep(step) {
+function extractElementNameFromStep(step, stepIndex = -1) {
     // Get the current method names from storage to match against
     return new Promise((resolve) => {
         getStoredData((result) => {
@@ -1356,7 +1521,7 @@ function extractElementNameFromStep(step) {
             let elementName = step.replace(/^When\s+/, '').replace(/"/g, '').replace(/<[^>]+>/g, '');
             
             // Remove action words and common words
-            const actionWords = ['click', 'on', 'enter', 'select', 'the', 'a', 'an', 'when', 'and', 'then'];
+            const actionWords = ['click', 'on', 'enter', 'select', 'the', 'a', 'an', 'when', 'and', 'then', 'add', 'device'];
             let words = elementName.split(' ').filter(word => 
                 !actionWords.includes(word.toLowerCase()) && word.trim().length > 0
             );
@@ -1369,40 +1534,130 @@ function extractElementNameFromStep(step) {
                     return match ? match[1] : null;
                 }).filter(Boolean);
                 
-                // Try to find a matching method based on the step words
+                console.log('Available method names:', methodNames);
+                console.log('Step words to match:', words);
+                console.log('Step index:', stepIndex);
+                
+                // First try: Direct index mapping if available and valid
+                if (stepIndex >= 0 && stepIndex < methodNames.length) {
+                    const directMatch = methodNames[stepIndex];
+                    console.log('Direct index match:', directMatch);
+                    
+                    // Verify this direct match makes sense by checking for any word overlap
+                    const stepText = words.join('').toLowerCase();
+                    const methodText = directMatch.toLowerCase();
+                    
+                    // Check if there's some logical connection
+                    let hasConnection = false;
+                    const directMethodWords = directMatch.split(/(?=[A-Z])/).map(w => w.toLowerCase()).filter(w => w.length > 0);
+                    const stepWords = words.map(w => w.toLowerCase());
+                    
+                    // Check for word connections
+                    for (const stepWord of stepWords) {
+                        for (const methodWord of directMethodWords) {
+                            if (stepWord.includes(methodWord) || methodWord.includes(stepWord) || 
+                                stepWord === methodWord || (stepWord.length >= 3 && methodWord.length >= 3 && 
+                                (stepWord.substring(0, 3) === methodWord.substring(0, 3)))) {
+                                hasConnection = true;
+                                break;
+                            }
+                        }
+                        if (hasConnection) break;
+                    }
+                    
+                    // If there's a reasonable connection, use direct mapping
+                    if (hasConnection) {
+                        console.log('Using direct index mapping:', directMatch);
+                        resolve(directMatch);
+                        return;
+                    }
+                }
+                
+                // Second try: Improved matching algorithm
                 let bestMatch = null;
                 let bestScore = 0;
                 
-                methodNames.forEach(methodName => {
-                    // Calculate similarity score
-                    const methodWords = methodName.split(/(?=[A-Z])/).map(w => w.toLowerCase());
+                methodNames.forEach((methodName, index) => {
+                    // Split method name into words (PascalCase)
+                    const methodWords = methodName.split(/(?=[A-Z])/).map(w => w.toLowerCase()).filter(w => w.length > 0);
                     const stepWords = words.map(w => w.toLowerCase());
                     
                     let score = 0;
-                    stepWords.forEach(stepWord => {
-                        methodWords.forEach(methodWord => {
-                            if (methodWord.includes(stepWord) || stepWord.includes(methodWord)) {
-                                score += stepWord.length * methodWord.length;
+                    let exactMatches = 0;
+                    let partialMatches = 0;
+                    
+                    // Calculate exact word matches (highest priority)
+                    methodWords.forEach(methodWord => {
+                        stepWords.forEach(stepWord => {
+                            if (methodWord === stepWord) {
+                                exactMatches++;
+                                score += 100; // High score for exact matches
+                            } else if (methodWord.includes(stepWord) && stepWord.length >= 3) {
+                                partialMatches++;
+                                score += 50; // Medium score for partial matches
+                            } else if (stepWord.includes(methodWord) && methodWord.length >= 3) {
+                                partialMatches++;
+                                score += 30; // Lower score for reverse partial matches
                             }
                         });
                     });
                     
-                    if (score > bestScore) {
+                    // Special handling for compound words and common patterns
+                    const stepText = stepWords.join('');
+                    const methodText = methodWords.join('');
+                    
+                    // Check for exact substring matches in compound form
+                    if (stepText.includes(methodText) || methodText.includes(stepText)) {
+                        score += 75; // Good score for compound matches
+                    }
+                    
+                    // Bonus for matching the last word (often the most important)
+                    if (stepWords.length > 0 && methodWords.length > 0) {
+                        const lastStepWord = stepWords[stepWords.length - 1];
+                        const lastMethodWord = methodWords[methodWords.length - 1];
+                        if (lastStepWord === lastMethodWord || lastStepWord.includes(lastMethodWord) || lastMethodWord.includes(lastStepWord)) {
+                            score += 25;
+                        }
+                    }
+                    
+                    // Bonus for index proximity (prefer methods that are close in position)
+                    if (stepIndex >= 0) {
+                        const indexDistance = Math.abs(stepIndex - index);
+                        if (indexDistance <= 2) { // Close methods get small bonus
+                            score += (3 - indexDistance) * 5;
+                        }
+                    }
+                    
+                    // Penalty for length mismatch to avoid false positives
+                    const lengthDiff = Math.abs(stepWords.length - methodWords.length);
+                    if (lengthDiff > 2) {
+                        score -= lengthDiff * 5;
+                    }
+                    
+                    console.log(`Method: ${methodName}, Score: ${score}, Exact: ${exactMatches}, Partial: ${partialMatches}`);
+                    
+                    // Update best match if score is better and we have at least one meaningful match
+                    if (score > bestScore && (exactMatches > 0 || partialMatches > 0 || score >= 75)) {
                         bestScore = score;
                         bestMatch = methodName;
                     }
                 });
                 
-                if (bestMatch && bestScore > 0) {
+                console.log(`Best match: ${bestMatch} with score: ${bestScore}`);
+                
+                if (bestMatch && bestScore > 20) { // Lower threshold but require some match
                     resolve(bestMatch);
                     return;
                 }
             }
             
-            // Fallback to original logic if no match found
-            // Remove menu/page names from the beginning (common patterns)
+            // Fallback to improved word extraction logic
+            console.log('Fallback: No method match found, using word extraction');
+            console.log('Original words:', words);
+            
+            // Remove menu/page names and common prefixes more intelligently
             if (words.length > 1) {
-                // Common menu/page name patterns to remove (first 1-2 words usually)
+                // Common menu/page name patterns to remove (first words usually)
                 const menuPatterns = [
                     'test', 'page', 'menu', 'report', 'admin', 'student', 'class', 'exam',
                     'manage', 'clear', 'attendance', 'entry', 'filter', 'search', 'view',
@@ -1411,11 +1666,11 @@ function extractElementNameFromStep(step) {
                 
                 let filteredWords = [...words];
                 
-                // Remove menu-like words from the beginning
+                // Remove menu-like words from the beginning, but keep meaningful words
                 while (filteredWords.length > 1) {
                     const firstWord = filteredWords[0].toLowerCase();
                     const hasMenuPattern = menuPatterns.some(pattern => 
-                        firstWord.includes(pattern) || firstWord.length < 4
+                        firstWord.includes(pattern) || firstWord.length < 3
                     );
                     
                     if (hasMenuPattern) {
@@ -1429,7 +1684,35 @@ function extractElementNameFromStep(step) {
                 if (filteredWords.length > 0) {
                     words = filteredWords;
                 }
+                
+                // For patterns like "Add Device Campus", take the last word which is usually the field name
+                if (words.length >= 2) {
+                    // Check if we have pattern like [action] [entity] [field]
+                    const potentialField = words[words.length - 1];
+                    if (potentialField.length >= 3 && !menuPatterns.includes(potentialField.toLowerCase())) {
+                        // If the last word looks like a field name, prioritize it
+                        const secondToLast = words.length >= 2 ? words[words.length - 2].toLowerCase() : '';
+                        
+                        // Common entity words that we can skip to get to the field name
+                        const entityWords = ['device', 'user', 'student', 'admin', 'class', 'report', 'data', 'info'];
+                        
+                        if (entityWords.includes(secondToLast)) {
+                            // Take just the last word (field name)
+                            words = [potentialField];
+                        } else if (words.length >= 3) {
+                            // Take last 2 words but prefer the last one
+                            const lastTwo = words.slice(-2);
+                            if (entityWords.includes(lastTwo[0].toLowerCase())) {
+                                words = [lastTwo[1]]; // Just the field name
+                            } else {
+                                words = lastTwo; // Both words
+                            }
+                        }
+                    }
+                }
             }
+            
+            console.log('Filtered words:', words);
             
             // Handle special cases for common form elements
             if (words.length >= 2) {
@@ -1447,18 +1730,25 @@ function extractElementNameFromStep(step) {
                 else if (lastTwoWords.includes('user') && lastTwoWords.includes('name')) {
                     words = ['Username'];
                 }
+                // Patterns like "Save And Exit" -> "SaveAndExit"
+                else if (lastTwoWords.join(' ') === 'and exit' && words.length >= 3) {
+                    words = words.slice(-3); // Include "Save And Exit"
+                }
             }
             
             // If no meaningful words left, try to extract from the original step differently
             if (words.length === 0) {
+                console.log('No words found, trying alternative extraction');
                 // Try to get the last meaningful part of the step
                 const stepParts = step.replace(/^When\s+/, '').replace(/"/g, '').replace(/<[^>]+>/g, '').split(' ');
+                const actionWords = ['click', 'on', 'enter', 'select', 'the', 'a', 'an', 'when', 'and', 'then', 'add', 'device'];
                 words = stepParts.filter(word => 
                     !actionWords.includes(word.toLowerCase()) && 
                     word.trim().length > 0 && 
                     !word.includes('<') && 
                     !word.includes('>')
                 ).slice(-2); // Get last 2 meaningful words
+                console.log('Alternative extracted words:', words);
             }
             
             // Convert to PascalCase
@@ -1466,6 +1756,7 @@ function extractElementNameFromStep(step) {
                 word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
             ).join('');
             
+            console.log('Final element name:', elementName);
             resolve(elementName || 'DefaultElement');
         });
     });
@@ -1560,12 +1851,35 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     });
 }
 
-// ========== Download Files Functionality ==========
+// Add periodic updates to ensure configuration info stays visible
+setInterval(updateConfigurationInfo, 2000); // Update every 2 seconds
 
-// Toggle section visibility
+// Also update when the page becomes visible again
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        updateConfigurationInfo();
+    }
+});
+
+// Add initial updates to ensure content is set properly
+setTimeout(() => {
+    updateConfigurationInfo();
+    setTimeout(updateConfigurationInfo, 1000);
+    setTimeout(updateConfigurationInfo, 2000);
+}, 500);
+
+// Also update when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    updateConfigurationInfo();
+});
+
+// ========== Visual Studio Integration Functions ==========
+
+// Toggle collapsible sections
 function toggleSection(sectionId) {
     const section = document.getElementById(sectionId);
-    const toggle = document.getElementById(sectionId.replace('Section', 'Toggle'));
+    const toggleId = sectionId.replace('Section', 'Toggle');
+    const toggle = document.getElementById(toggleId);
     
     if (section && toggle) {
         const isCollapsed = section.style.display === 'none';
@@ -1593,13 +1907,18 @@ function sendElementToVisualStudio() {
     
     getStoredData((result) => {
         const actionName = result.actionName || 'Default';
+        const rootFileName = result.rootFileName || '';
         const cleanActionName = actionName.replace(/\s+/g, '');
         const locators = filterDuplicateLocators(result.collectedLocators || []);
         const elementClassName = `${cleanActionName}Element`;
         
+        // Generate namespace
+        const namespace = generateNamespace(rootFileName);
+        
+        // Match the exact format shown in Locator Code section with namespace
         const content = locators.length
-            ? `public static class ${elementClassName} {\n${locators.map(l => '    ' + l).join('\n')}\n}`
-            : `public static class ${elementClassName} {\n    // No locators collected\n}`;
+            ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
         
         sendFileToVisualStudio(`${elementClassName}.cs`, content, selectedFolder, selectedProject)
             .then(() => {
@@ -1631,13 +1950,18 @@ function sendPageToVisualStudio() {
     
     getStoredData((result) => {
         const actionName = result.actionName || 'Default';
+        const rootFileName = result.rootFileName || '';
         const cleanActionName = actionName.replace(/\s+/g, '');
         const methods = filterDuplicateStrings(result.collectedMethods || []);
         const pageClassName = `${cleanActionName}Page`;
         
+        // Generate namespace
+        const namespace = generateNamespace(rootFileName);
+        
+        // Match the exact format shown in Method Code section with namespace (removed static)
         const content = methods.length
-            ? `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '    ' + m).join('\n')}\n}`
-            : `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n    // No methods collected\n}`;
+            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
         
         sendFileToVisualStudio(`${pageClassName}.cs`, content, selectedFolder, selectedProject)
             .then(() => {
@@ -1729,227 +2053,6 @@ function sendFeatureToVisualStudio() {
     });
 }
 
-// Add event listener for download button
-document.addEventListener('DOMContentLoaded', () => {
-    const downloadBtn = document.getElementById('downloadFilesBtn');
-    const downloadModal = document.getElementById('downloadModal');
-    const closeModal = document.getElementById('closeDownloadModal');
-    
-    if (downloadBtn) {
-        downloadBtn.addEventListener('click', () => {
-            updateFileNamesPreview();
-            downloadModal.style.display = 'block';
-        });
-    }
-    
-    if (closeModal) {
-        closeModal.addEventListener('click', () => {
-            downloadModal.style.display = 'none';
-        });
-    }
-    
-    // Close modal when clicking outside
-    window.addEventListener('click', (event) => {
-        if (event.target === downloadModal) {
-            downloadModal.style.display = 'none';
-        }
-    });
-    
-    // Individual download buttons
-    document.getElementById('downloadElementBtn')?.addEventListener('click', () => downloadElementFile());
-    document.getElementById('downloadPageBtn')?.addEventListener('click', () => downloadPageFile());
-    document.getElementById('downloadStepBtn')?.addEventListener('click', () => downloadStepFile());
-    document.getElementById('downloadFeatureBtn')?.addEventListener('click', () => downloadFeatureFile());
-    document.getElementById('downloadAllIndividualBtn')?.addEventListener('click', () => downloadAllIndividual());
-    document.getElementById('downloadAllZipBtn')?.addEventListener('click', () => downloadAllAsZip());
-    document.getElementById('sendToVisualStudioBtn')?.addEventListener('click', () => sendAllToVisualStudio());
-    
-    // Individual send to Visual Studio buttons
-    document.getElementById('sendElementBtn')?.addEventListener('click', () => sendElementToVisualStudio());
-    document.getElementById('sendPageBtn')?.addEventListener('click', () => sendPageToVisualStudio());
-    document.getElementById('sendStepBtn')?.addEventListener('click', () => sendStepToVisualStudio());
-    document.getElementById('sendFeatureBtn')?.addEventListener('click', () => sendFeatureToVisualStudio());
-    
-    // Project and folder selection buttons
-    document.getElementById('loadProjectsBtn')?.addEventListener('click', () => loadProjects());
-    document.getElementById('projectSelect')?.addEventListener('change', () => onProjectSelectionChange());
-});
-
-function updateFileNamesPreview() {
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        const preview = document.getElementById('fileNamesPreview');
-        
-        if (preview) {
-            preview.innerHTML = `
-                • ${cleanActionName}Element.cs<br>
-                • ${cleanActionName}Page.cs<br>
-                • ${cleanActionName}Step.cs<br>
-                • ${cleanActionName}.feature
-            `;
-        }
-    });
-}
-
-function downloadElementFile() {
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        const locators = filterDuplicateLocators(result.collectedLocators || []);
-        const className = `${cleanActionName}Element`;
-        
-        // Match the exact format shown in Locator Code section
-        const content = locators.length
-            ? `public static class ${className} {\n${locators.map(l => '    ' + l).join('\n')}\n}`
-            : `public static class ${className} {\n    // No locators collected\n}`;
-        
-        downloadFile(`${className}.cs`, content);
-    });
-}
-
-function downloadPageFile() {
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        const methods = filterDuplicateStrings(result.collectedMethods || []);
-        const pageClassName = `${cleanActionName}Page`;
-        
-        // Match the exact format shown in Method Code section (including the static class format)
-        const content = methods.length
-            ? `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '    ' + m).join('\n')}\n}`
-            : `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n    // No methods collected\n}`;
-        
-        downloadFile(`${pageClassName}.cs`, content);
-    });
-}
-
-function downloadStepFile() {
-    const stepFileCode = document.getElementById('stepFileCode');
-    if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
-        getStoredData((result) => {
-            const actionName = result.actionName || 'Default';
-            const cleanActionName = actionName.replace(/\s+/g, '');
-            downloadFile(`${cleanActionName}Step.cs`, stepFileCode.textContent);
-        });
-    } else {
-        showToast('⚠️ Please generate step file first!', 'warning');
-    }
-}
-
-function downloadFeatureFile() {
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const menuName = result.menuName || actionName;
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
-        
-        const content = gherkinSteps.length
-            ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
-            : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
-        
-        downloadFile(`${cleanActionName}.feature`, content);
-    });
-}
-
-function downloadAllIndividual() {
-    // Download all 4 files individually with a small delay between each
-    const downloads = [
-        { func: downloadElementFile, name: 'Element file' },
-        { func: downloadPageFile, name: 'Page file' },
-        { func: downloadStepFile, name: 'Step file' },
-        { func: downloadFeatureFile, name: 'Feature file' }
-    ];
-    
-    let downloadIndex = 0;
-    
-    const downloadNext = () => {
-        if (downloadIndex < downloads.length) {
-            const download = downloads[downloadIndex];
-            download.func();
-            downloadIndex++;
-            
-            // Add a delay before next download to prevent browser blocking
-            setTimeout(downloadNext, 800);
-        } else {
-            showToast('🎉 All 4 files downloaded individually!', 'success');
-        }
-    };
-    
-    showToast('📄 Starting individual downloads...', 'info');
-    downloadNext();
-}
-
-function downloadAllAsZip() {
-    getStoredData((result) => {
-        const actionName = result.actionName || 'Default';
-        const menuName = result.menuName || actionName;
-        const cleanActionName = actionName.replace(/\s+/g, '');
-        
-        // Create zip content using JSZip-like structure (simplified)
-        const files = {};
-        
-        // Element file
-        const locators = filterDuplicateLocators(result.collectedLocators || []);
-        const elementClassName = `${cleanActionName}Element`;
-        files[`${elementClassName}.cs`] = locators.length
-            ? `public static class ${elementClassName} {\n${locators.map(l => '    ' + l).join('\n')}\n}`
-            : `public static class ${elementClassName} {\n    // No locators collected\n}`;
-        
-        // Page file
-        const methods = filterDuplicateStrings(result.collectedMethods || []);
-        const pageClassName = `${cleanActionName}Page`;
-        files[`${pageClassName}.cs`] = methods.length
-            ? `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '    ' + m).join('\n')}\n}`
-            : `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n    // No methods collected\n}`;
-        
-        // Step file
-        const stepFileCode = document.getElementById('stepFileCode');
-        if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
-            files[`${cleanActionName}Step.cs`] = stepFileCode.textContent;
-        } else {
-            files[`${cleanActionName}Step.cs`] = `// Please generate step file first`;
-        }
-        
-        // Feature file
-        const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
-        files[`${cleanActionName}.feature`] = gherkinSteps.length
-            ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
-            : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
-        
-        // Since we don't have JSZip, we'll create individual downloads with a delay
-        let fileIndex = 0;
-        const fileNames = Object.keys(files);
-        
-        const downloadNext = () => {
-            if (fileIndex < fileNames.length) {
-                const fileName = fileNames[fileIndex];
-                downloadFile(fileName, files[fileName]);
-                fileIndex++;
-                setTimeout(downloadNext, 500); // 500ms delay between downloads
-            } else {
-                showToast(`📦 All ${fileNames.length} files downloaded!`, 'success');
-            }
-        };
-        
-        downloadNext();
-    });
-}
-
-function downloadFile(filename, content) {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    
-    showToast(`📄 ${filename} downloaded!`, 'success');
-}
-
 // Project and folder selection functionality
 function loadProjects() {
     const statusDiv = document.getElementById('projectStatus');
@@ -2015,18 +2118,28 @@ function loadProjects() {
 function onProjectSelectionChange() {
     const projectSelect = document.getElementById('projectSelect');
     const folderSelect = document.getElementById('folderSelect');
+    const folderSearch = document.getElementById('folderSearch');
     
     if (projectSelect.value) {
         folderSelect.disabled = false;
+        folderSearch.disabled = false;
         folderSelect.innerHTML = '<option value="">Project Root</option>';
+        folderSearch.value = '';
+        updateFolderSearchInfo('');
         
         // Auto-load folders when project is selected
         loadFolders();
     } else {
         folderSelect.disabled = true;
+        folderSearch.disabled = true;
         folderSelect.innerHTML = '<option value="">Select project first...</option>';
+        folderSearch.value = '';
+        updateFolderSearchInfo('');
     }
 }
+
+// Global variable to store all folders for search functionality
+let allFolders = [];
 
 function loadFolders() {
     const statusDiv = document.getElementById('projectStatus');
@@ -2064,20 +2177,25 @@ function loadFolders() {
                 // Create hierarchical folder display
                 const folderHierarchy = createFolderHierarchy(sortedFolders);
                 
-                folderHierarchy.forEach(folder => {
-                    const option = document.createElement('option');
-                    option.value = folder.path;
-                    option.textContent = folder.displayName;
-                    folderSelect.appendChild(option);
-                });
+                // Store all folders globally for search functionality
+                allFolders = folderHierarchy;
+                
+                // Display all folders initially
+                displayFolders(allFolders);
                 
                 statusDiv.innerHTML = `<span style="color: #10b981;">✅ Loaded folders for selected project (${sortedFolders.length} folders)</span>`;
+                updateFolderSearchInfo(`Showing ${folderHierarchy.length} folders`);
             } else {
+                allFolders = [];
                 statusDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ No folders found in project</span>';
+                updateFolderSearchInfo('No folders found');
             }
         })
         .catch(error => {
             console.error('Error loading folders:', error);
+            
+            // Clear folders and search on error
+            allFolders = [];
             
             // Provide more specific error messages based on error type
             let errorMessage = error.message;
@@ -2095,6 +2213,7 @@ function loadFolders() {
             }
             
             statusDiv.innerHTML = `<span style="color: #ef4444;">❌ Error: ${errorMessage}</span>`;
+            updateFolderSearchInfo('Error loading folders');
             
             // Safely call showToast if it exists
             if (typeof showToast === 'function') {
@@ -2103,6 +2222,57 @@ function loadFolders() {
                 window.showToast(toastMessage, 'error');
             }
         });
+}
+
+// Helper function to display folders in the select dropdown
+function displayFolders(folders) {
+    const folderSelect = document.getElementById('folderSelect');
+    
+    // Keep the "Project Root" option
+    folderSelect.innerHTML = '<option value="">📁 Project Root</option>';
+    
+    folders.forEach(folder => {
+        const option = document.createElement('option');
+        option.value = folder.path;
+        option.textContent = folder.displayName;
+        folderSelect.appendChild(option);
+    });
+}
+
+// Function to filter folders based on search input
+function filterFolders(searchTerm) {
+    if (!allFolders || allFolders.length === 0) {
+        return;
+    }
+    
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    if (searchLower === '') {
+        // Show all folders if search is empty
+        displayFolders(allFolders);
+        updateFolderSearchInfo(`Showing ${allFolders.length} folders`);
+        return;
+    }
+    
+    // Filter folders based on search term
+    const filteredFolders = allFolders.filter(folder => {
+        // Search in both the folder name and the full path
+        const folderName = folder.name.toLowerCase();
+        const folderPath = folder.path.toLowerCase();
+        
+        return folderName.includes(searchLower) || folderPath.includes(searchLower);
+    });
+    
+    displayFolders(filteredFolders);
+    updateFolderSearchInfo(`Found ${filteredFolders.length} of ${allFolders.length} folders`);
+}
+
+// Function to update the search info text
+function updateFolderSearchInfo(message) {
+    const infoElement = document.getElementById('folderSearchInfo');
+    if (infoElement) {
+        infoElement.textContent = message;
+    }
 }
 
 // Helper function to create hierarchical folder display
@@ -2208,7 +2378,11 @@ function sendAllToVisualStudio() {
     getStoredData((result) => {
         const actionName = result.actionName || 'Default';
         const menuName = result.menuName || actionName;
+        const rootFileName = result.rootFileName || '';
         const cleanActionName = actionName.replace(/\s+/g, '');
+        
+        // Generate namespace
+        const namespace = generateNamespace(rootFileName);
         
         // Create the files content
         const files = {};
@@ -2217,15 +2391,15 @@ function sendAllToVisualStudio() {
         const locators = filterDuplicateLocators(result.collectedLocators || []);
         const elementClassName = `${cleanActionName}Element`;
         files[`${elementClassName}.cs`] = locators.length
-            ? `public static class ${elementClassName} {\n${locators.map(l => '    ' + l).join('\n')}\n}`
-            : `public static class ${elementClassName} {\n    // No locators collected\n}`;
+            ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
         
         // Page file
         const methods = filterDuplicateStrings(result.collectedMethods || []);
         const pageClassName = `${cleanActionName}Page`;
         files[`${pageClassName}.cs`] = methods.length
-            ? `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '    ' + m).join('\n')}\n}`
-            : `public static class ${pageClassName}(IWebDriver driver) {\n    public IWebDriver Driver => driver;\n\n    public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n    // No methods collected\n}`;
+            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
         
         // Step file
         const stepFileCode = document.getElementById('stepFileCode');
@@ -2278,4 +2452,936 @@ function sendAllToVisualStudio() {
         
         sendNext();
     });
+}
+
+// Make toggleSection function available globally for HTML onclick handlers
+window.toggleSection = toggleSection;
+
+// ========== Download Files Functionality ==========
+
+// Add event listener for download button
+document.addEventListener('DOMContentLoaded', () => {
+    const downloadBtn = document.getElementById('downloadFilesBtn');
+    const downloadModal = document.getElementById('downloadModal');
+    const closeModal = document.getElementById('closeDownloadModal');
+    
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+            updateFileNamesPreview();
+            downloadModal.style.display = 'block';
+        });
+    }
+    
+    if (closeModal) {
+        closeModal.addEventListener('click', () => {
+            downloadModal.style.display = 'none';
+        });
+    }
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (event) => {
+        if (event.target === downloadModal) {
+            downloadModal.style.display = 'none';
+        }
+    });
+    
+    // Individual download buttons
+    document.getElementById('downloadElementBtn')?.addEventListener('click', () => downloadElementFile());
+    document.getElementById('downloadPageBtn')?.addEventListener('click', () => downloadPageFile());
+    document.getElementById('downloadStepBtn')?.addEventListener('click', () => downloadStepFile());
+    document.getElementById('downloadFeatureBtn')?.addEventListener('click', () => downloadFeatureFile());
+    document.getElementById('downloadAllIndividualBtn')?.addEventListener('click', () => downloadAllIndividual());
+    document.getElementById('downloadAllZipBtn')?.addEventListener('click', () => downloadAllAsZip());
+    
+    // Visual Studio integration buttons
+    document.getElementById('sendElementBtn')?.addEventListener('click', () => sendElementToVisualStudio());
+    document.getElementById('sendPageBtn')?.addEventListener('click', () => sendPageToVisualStudio());
+    document.getElementById('sendStepBtn')?.addEventListener('click', () => sendStepToVisualStudio());
+    document.getElementById('sendFeatureBtn')?.addEventListener('click', () => sendFeatureToVisualStudio());
+    document.getElementById('sendToVisualStudioBtn')?.addEventListener('click', () => sendAllToVisualStudio());
+    
+    // Project and folder selection buttons
+    document.getElementById('loadProjectsBtn')?.addEventListener('click', () => loadProjects());
+    document.getElementById('projectSelect')?.addEventListener('change', () => onProjectSelectionChange());
+    
+    // Folder search functionality
+    document.getElementById('folderSearch')?.addEventListener('input', (e) => filterFolders(e.target.value));
+});
+
+function updateFileNamesPreview() {
+    getStoredData((result) => {
+        const actionName = result.actionName || 'Default';
+        const rootFileName = result.rootFileName || '';
+        const cleanActionName = actionName.replace(/\s+/g, '');
+        const preview = document.getElementById('fileNamesPreview');
+        
+        const namespace = generateNamespace(rootFileName);
+        let namespaceText = ` (namespace: ${namespace})`;
+        
+        if (preview) {
+            preview.innerHTML = `
+                • ${cleanActionName}Element.cs${namespaceText}<br>
+                • ${cleanActionName}Page.cs${namespaceText}<br>
+                • ${cleanActionName}Step.cs (namespace: ${namespace}.Steps)<br>
+                • ${cleanActionName}.feature
+            `;
+        }
+    });
+}
+
+function downloadElementFile() {
+    getStoredData((result) => {
+        const actionName = result.actionName || 'Default';
+        const rootFileName = result.rootFileName || '';
+        const cleanActionName = actionName.replace(/\s+/g, '');
+        const locators = filterDuplicateLocators(result.collectedLocators || []);
+        const className = `${cleanActionName}Element`;
+        
+        // Generate namespace
+        const namespace = generateNamespace(rootFileName);
+        
+        // Match the exact format shown in Locator Code section with namespace
+        const content = locators.length
+            ? `namespace ${namespace}\n{\n    public static class ${className}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public static class ${className}\n    {\n        // No locators collected\n    }\n}`;
+        
+        downloadFile(`${className}.cs`, content);
+    });
+}
+
+function downloadPageFile() {
+    getStoredData((result) => {
+        const actionName = result.actionName || 'Default';
+        const rootFileName = result.rootFileName || '';
+        const cleanActionName = actionName.replace(/\s+/g, '');
+        const methods = filterDuplicateStrings(result.collectedMethods || []);
+        const pageClassName = `${cleanActionName}Page`;
+        
+        // Generate namespace
+        const namespace = generateNamespace(rootFileName);
+        
+        // Match the exact format shown in Method Code section with namespace (removed static)
+        const content = methods.length
+            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
+        
+        downloadFile(`${pageClassName}.cs`, content);
+    });
+}
+
+function downloadStepFile() {
+    const stepFileCode = document.getElementById('stepFileCode');
+    if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
+        getStoredData((result) => {
+            const actionName = result.actionName || 'Default';
+            const cleanActionName = actionName.replace(/\s+/g, '');
+            downloadFile(`${cleanActionName}Step.cs`, stepFileCode.textContent);
+        });
+    } else {
+        showToast('⚠️ Please generate step file first!', 'warning');
+    }
+}
+
+function downloadFeatureFile() {
+    getStoredData((result) => {
+        const actionName = result.actionName || 'Default';
+        const menuName = result.menuName || actionName;
+        const cleanActionName = actionName.replace(/\s+/g, '');
+        const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
+        
+        const content = gherkinSteps.length
+            ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
+            : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
+        
+        downloadFile(`${cleanActionName}.feature`, content);
+    });
+}
+
+function downloadAllIndividual() {
+    getStoredData((result) => {
+        const actionName = result.actionName || 'Default';
+        const menuName = result.menuName || actionName;
+        const rootFileName = result.rootFileName || '';
+        const cleanActionName = actionName.replace(/\s+/g, '');
+        
+        // Generate namespace
+        const namespace = generateNamespace(rootFileName);
+        
+        // Create all file contents
+        const files = {};
+        
+        // Element file with namespace
+        const locators = filterDuplicateLocators(result.collectedLocators || []);
+        const elementClassName = `${cleanActionName}Element`;
+        files[`${elementClassName}.cs`] = locators.length
+            ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
+        
+        // Page file with namespace
+        const methods = filterDuplicateStrings(result.collectedMethods || []);
+        const pageClassName = `${cleanActionName}Page`;
+        files[`${pageClassName}.cs`] = methods.length
+            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
+        
+        // Step file
+        const stepFileCode = document.getElementById('stepFileCode');
+        if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
+            files[`${cleanActionName}Step.cs`] = stepFileCode.textContent;
+        } else {
+            files[`${cleanActionName}Step.cs`] = `// Please generate step file first`;
+        }
+        
+        // Feature file
+        const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
+        files[`${cleanActionName}.feature`] = gherkinSteps.length
+            ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
+            : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
+        
+        // Download all files individually with delay
+        let fileIndex = 0;
+        const fileNames = Object.keys(files);
+        
+        showToast(`📄 Starting download of ${fileNames.length} files to Downloads folder...`, 'info');
+        
+        const downloadNext = () => {
+            if (fileIndex < fileNames.length) {
+                const fileName = fileNames[fileIndex];
+                // Use fallback download for bulk operations to avoid multiple file dialogs
+                fallbackDownload(fileName, files[fileName]);
+                fileIndex++;
+                setTimeout(downloadNext, 800); // 800ms delay between downloads
+            } else {
+                showToast(`🎉 All ${fileNames.length} files downloaded to Downloads folder!`, 'success');
+            }
+        };
+        
+        downloadNext();
+    });
+}
+
+function downloadAllAsZip() {
+    getStoredData((result) => {
+        const actionName = result.actionName || 'Default';
+        const menuName = result.menuName || actionName;
+        const rootFileName = result.rootFileName || '';
+        const cleanActionName = actionName.replace(/\s+/g, '');
+        
+        // Generate namespace
+        const namespace = generateNamespace(rootFileName);
+        
+        // Create all file contents
+        const files = {};
+        
+        // Element file with namespace
+        const locators = filterDuplicateLocators(result.collectedLocators || []);
+        const elementClassName = `${cleanActionName}Element`;
+        files[`${elementClassName}.cs`] = locators.length
+            ? `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n${locators.map(l => '        ' + l).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public static class ${elementClassName}\n    {\n        // No locators collected\n    }\n}`;
+        
+        // Page file with namespace
+        const methods = filterDuplicateStrings(result.collectedMethods || []);
+        const pageClassName = `${cleanActionName}Page`;
+        files[`${pageClassName}.cs`] = methods.length
+            ? `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n${methods.map(m => '        ' + m).join('\n')}\n    }\n}`
+            : `namespace ${namespace}\n{\n    public class ${pageClassName}(IWebDriver driver)\n    {\n        public IWebDriver Driver => driver;\n\n        public IJavaScriptExecutor Js => (IJavaScriptExecutor)driver;\n\n        // No methods collected\n    }\n}`;
+        
+        // Step file
+        const stepFileCode = document.getElementById('stepFileCode');
+        if (stepFileCode && stepFileCode.textContent.trim() && !stepFileCode.textContent.includes('Select input types')) {
+            files[`${cleanActionName}Step.cs`] = stepFileCode.textContent;
+        } else {
+            files[`${cleanActionName}Step.cs`] = `// Please generate step file first`;
+        }
+        
+        // Feature file
+        const gherkinSteps = filterDuplicateStrings(result.collectedGherkinSteps || []);
+        files[`${cleanActionName}.feature`] = gherkinSteps.length
+            ? `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n${gherkinSteps.map(step => '    ' + step).join('\n')}`
+            : `Feature: ${menuName} Functionality\n\n  Scenario: Test ${menuName} operations\n    # No Gherkin steps collected`;
+        
+        // Create actual ZIP file
+        createZipFile(files, `${cleanActionName}_TestFiles.zip`);
+    });
+}
+
+function createZipFile(files, zipFileName) {
+    showToast('📦 Creating ZIP file...', 'info');
+    
+    // Create a simple ZIP file using browser APIs
+    try {
+        // If browser supports CompressionStream (modern browsers)
+        if (typeof CompressionStream !== 'undefined') {
+            createModernZip(files, zipFileName);
+        } else {
+            // Fallback: create a simple archive-like file
+            createArchiveFile(files, zipFileName);
+        }
+    } catch (error) {
+        console.error('ZIP creation failed:', error);
+        // Fallback to individual downloads
+        showToast('⚠️ ZIP creation failed, downloading individual files...', 'warning');
+        downloadIndividualFiles(files);
+    }
+}
+
+async function createModernZip(files, zipFileName) {
+    try {
+        // Create ZIP content manually using basic ZIP structure
+        const zipContent = await createBasicZip(files);
+        
+        const blob = new Blob([zipContent], { type: 'application/zip' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = zipFileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
+        
+        showToast(`📦 ${zipFileName} downloaded successfully!`, 'success');
+    } catch (error) {
+        throw error;
+    }
+}
+
+function createArchiveFile(files, zipFileName) {
+    // Create a text-based archive file as fallback
+    let archiveContent = `# Test Files Archive - ${new Date().toLocaleString()}\n`;
+    archiveContent += `# Extract individual files from this archive\n\n`;
+    
+    Object.entries(files).forEach(([filename, content]) => {
+        archiveContent += `\n${'='.repeat(60)}\n`;
+        archiveContent += `FILE: ${filename}\n`;
+        archiveContent += `${'='.repeat(60)}\n`;
+        archiveContent += content;
+        archiveContent += `\n${'='.repeat(60)}\n`;
+    });
+    
+    const blob = new Blob([archiveContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = zipFileName.replace('.zip', '_Archive.txt');
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 100);
+    
+    showToast(`📦 Archive file downloaded (ZIP not supported)!`, 'success');
+}
+
+async function createBasicZip(files) {
+    // Create a very basic ZIP file structure
+    const encoder = new TextEncoder();
+    const fileEntries = [];
+    let centralDirectorySize = 0;
+    let offsetOfCentralDirectory = 0;
+    
+    // Local file headers and data
+    let zipData = new Uint8Array(0);
+    
+    for (const [filename, content] of Object.entries(files)) {
+        const fileData = encoder.encode(content);
+        const filenameData = encoder.encode(filename);
+        
+        // Local file header (simplified)
+        const localHeader = new Uint8Array(30 + filenameData.length);
+        const view = new DataView(localHeader.buffer);
+        
+        // Local file header signature
+        view.setUint32(0, 0x04034b50, true);
+        // Version needed to extract
+        view.setUint16(4, 20, true);
+        // General purpose bit flag
+        view.setUint16(6, 0, true);
+        // Compression method (0 = no compression)
+        view.setUint16(8, 0, true);
+        // Last mod file time & date
+        view.setUint16(10, 0, true);
+        view.setUint16(12, 0, true);
+        // CRC-32 (simplified - using 0)
+        view.setUint32(14, 0, true);
+        // Compressed size
+        view.setUint32(18, fileData.length, true);
+        // Uncompressed size
+        view.setUint32(22, fileData.length, true);
+        // Filename length
+        view.setUint16(26, filenameData.length, true);
+        // Extra field length
+        view.setUint16(28, 0, true);
+        
+        // Copy filename
+        localHeader.set(filenameData, 30);
+        
+        // Combine header + data
+        const fileEntry = new Uint8Array(localHeader.length + fileData.length);
+        fileEntry.set(localHeader, 0);
+        fileEntry.set(fileData, localHeader.length);
+        
+        // Append to zip data
+        const newZipData = new Uint8Array(zipData.length + fileEntry.length);
+        newZipData.set(zipData, 0);
+        newZipData.set(fileEntry, zipData.length);
+        zipData = newZipData;
+        
+        // Store for central directory
+        fileEntries.push({
+            filename: filenameData,
+            localHeaderOffset: offsetOfCentralDirectory,
+            compressedSize: fileData.length,
+            uncompressedSize: fileData.length
+        });
+        
+        offsetOfCentralDirectory += fileEntry.length;
+    }
+    
+    // Central directory (simplified)
+    let centralDirectory = new Uint8Array(0);
+    
+    for (const entry of fileEntries) {
+        const centralHeader = new Uint8Array(46 + entry.filename.length);
+        const view = new DataView(centralHeader.buffer);
+        
+        // Central directory signature
+        view.setUint32(0, 0x02014b50, true);
+        // Version made by
+        view.setUint16(4, 20, true);
+        // Version needed to extract
+        view.setUint16(6, 20, true);
+        // General purpose bit flag
+        view.setUint16(8, 0, true);
+        // Compression method
+        view.setUint16(10, 0, true);
+        // Last mod file time & date
+        view.setUint16(12, 0, true);
+        view.setUint16(14, 0, true);
+        // CRC-32
+        view.setUint32(16, 0, true);
+        // Compressed size
+        view.setUint32(20, entry.compressedSize, true);
+        // Uncompressed size
+        view.setUint32(24, entry.uncompressedSize, true);
+        // Filename length
+        view.setUint16(28, entry.filename.length, true);
+        // Extra field length
+        view.setUint16(30, 0, true);
+        // File comment length
+        view.setUint16(32, 0, true);
+        // Disk number start
+        view.setUint16(34, 0, true);
+        // Internal file attributes
+        view.setUint16(36, 0, true);
+        // External file attributes
+        view.setUint32(38, 0, true);
+        // Relative offset of local header
+        view.setUint32(42, entry.localHeaderOffset, true);
+        
+        // Copy filename
+        centralHeader.set(entry.filename, 46);
+        
+        // Append to central directory
+        const newCentralDirectory = new Uint8Array(centralDirectory.length + centralHeader.length);
+        newCentralDirectory.set(centralDirectory, 0);
+        newCentralDirectory.set(centralHeader, centralDirectory.length);
+        centralDirectory = newCentralDirectory;
+    }
+    
+    centralDirectorySize = centralDirectory.length;
+    
+    // End of central directory record
+    const endRecord = new Uint8Array(22);
+    const endView = new DataView(endRecord.buffer);
+    
+    // End of central dir signature
+    endView.setUint32(0, 0x06054b50, true);
+    // Number of this disk
+    endView.setUint16(4, 0, true);
+    // Number of disk with start of central directory
+    endView.setUint16(6, 0, true);
+    // Number of central directory records on this disk
+    endView.setUint16(8, fileEntries.length, true);
+    // Total number of central directory records
+    endView.setUint16(10, fileEntries.length, true);
+    // Size of central directory
+    endView.setUint32(12, centralDirectorySize, true);
+    // Offset of start of central directory
+    endView.setUint32(16, offsetOfCentralDirectory, true);
+    // ZIP file comment length
+    endView.setUint16(20, 0, true);
+    
+    // Combine all parts
+    const finalZip = new Uint8Array(zipData.length + centralDirectory.length + endRecord.length);
+    finalZip.set(zipData, 0);
+    finalZip.set(centralDirectory, zipData.length);
+    finalZip.set(endRecord, zipData.length + centralDirectory.length);
+    
+    return finalZip;
+}
+
+function downloadIndividualFiles(files) {
+    // Fallback: download files individually
+    let fileIndex = 0;
+    const fileNames = Object.keys(files);
+    
+    const downloadNext = () => {
+        if (fileIndex < fileNames.length) {
+            const fileName = fileNames[fileIndex];
+            fallbackDownload(fileName, files[fileName]);
+            fileIndex++;
+            setTimeout(downloadNext, 500);
+        } else {
+            showToast(`📄 All ${fileNames.length} files downloaded individually!`, 'success');
+        }
+    };
+    
+    downloadNext();
+}
+
+function downloadFile(filename, content) {
+    // Ensure proper line endings for Windows/cross-platform compatibility
+    const normalizedContent = content.replace(/\r\n|\r|\n/g, '\r\n');
+    
+    // Try File System Access API first for direct save
+    tryFileSystemAccess(filename, normalizedContent);
+}
+
+async function tryFileSystemAccess(filename, content) {
+    // Check if File System Access API is available
+    if ('showSaveFilePicker' in window) {
+        try {
+            // Get file extension
+            const ext = filename.split('.').pop();
+            const acceptTypes = {};
+            
+            if (ext === 'cs') {
+                acceptTypes['text/x-csharp'] = ['.cs'];
+            } else if (ext === 'feature') {
+                acceptTypes['text/plain'] = ['.feature'];
+            } else {
+                acceptTypes['text/plain'] = ['.txt', '.cs', '.feature'];
+            }
+            
+            const fileHandle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                startIn: 'downloads', // Start in Downloads, user can navigate
+                types: [{
+                    description: 'Generated files',
+                    accept: acceptTypes
+                }]
+            });
+            
+            const writable = await fileHandle.createWritable();
+            await writable.write(content);
+            await writable.close();
+            
+            showToast(`📄 ${filename} saved successfully!`, 'success');
+            return;
+            
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                // User cancelled - that's fine
+                showToast('📄 Save cancelled', 'info');
+                return;
+            } else {
+                console.warn('File System Access API failed:', error);
+                // Fall through to fallback
+            }
+        }
+    }
+    
+    // Fallback to regular download
+    showToast('📄 Using Downloads folder (File manager not available)', 'info');
+    fallbackDownload(filename, content);
+}
+
+function showCustomPathDownloadModal(filename, content, downloadPath) {
+    // Create modal for custom path download
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    `;
+    
+    modalContent.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <h3 style="margin: 0 0 15px 0; color: #1f2937;">📁 Custom Download Location</h3>
+            <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                Your custom download path: <strong style="color: #059669;">${downloadPath}</strong>
+            </p>
+            <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                Choose how you want to save <strong>${filename}</strong>:
+            </p>
+        </div>
+        
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="downloadDefault" style="
+                background: #3b82f6;
+                color: white;
+                border: none;
+                padding: 10px 16px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                flex: 1;
+                min-width: 120px;
+            ">📥 Download to Downloads</button>
+            
+            <button id="copyContent" style="
+                background: #7c3aed;
+                color: white;
+                border: none;
+                padding: 10px 16px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                flex: 1;
+                min-width: 140px;
+            ">� Copy & Create File</button>
+            
+            <button id="viewContent" style="
+                background: #059669;
+                color: white;
+                border: none;
+                padding: 10px 16px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                flex: 1;
+                min-width: 120px;
+            ">�️ View Content</button>
+        </div>
+        
+        <div style="margin-top: 15px; padding: 12px; background: #f3f4f6; border-radius: 8px; font-size: 13px; color: #374151;">
+            💡 <strong>To save to your custom path:</strong><br>
+            1. Use "Copy & Create File" to copy content<br>
+            2. Open File Explorer → Navigate to <code style="background: #e5e7eb; padding: 2px 4px; border-radius: 3px;">${downloadPath}</code><br>
+            3. Create new file → Paste content → Save as <code style="background: #e5e7eb; padding: 2px 4px; border-radius: 3px;">${filename}</code>
+        </div>
+        
+        <button id="closeModal" style="
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 15px;
+            width: 100%;
+        ">✕ Cancel</button>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Event handlers - use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+        const downloadDefaultBtn = document.getElementById('downloadDefault');
+        const copyContentBtn = document.getElementById('copyContent');
+        const viewContentBtn = document.getElementById('viewContent');
+        const closeModalBtn = document.getElementById('closeModal');
+        
+        if (downloadDefaultBtn) {
+            downloadDefaultBtn.onclick = () => {
+                fallbackDownload(filename, content);
+                document.body.removeChild(modal);
+                showToast(`📄 ${filename} downloaded to Downloads folder`, 'info');
+            };
+        }
+        
+        if (copyContentBtn) {
+            copyContentBtn.onclick = () => {
+                navigator.clipboard.writeText(content).then(() => {
+                    document.body.removeChild(modal);
+                    showToast(`📋 ${filename} copied! Navigate to ${downloadPath} and create the file`, 'success');
+                }).catch(() => {
+                    // Fallback for clipboard
+                    const textArea = document.createElement('textarea');
+                    textArea.value = content;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    document.body.removeChild(modal);
+                    showToast(`📋 ${filename} copied! Navigate to ${downloadPath} and create the file`, 'success');
+                });
+            };
+        }
+        
+        if (viewContentBtn) {
+            viewContentBtn.onclick = () => {
+                document.body.removeChild(modal);
+                showContentViewModal(filename, content, downloadPath);
+            };
+        }
+        
+        if (closeModalBtn) {
+            closeModalBtn.onclick = () => {
+                document.body.removeChild(modal);
+            };
+        }
+    }, 10);
+    
+    document.getElementById('downloadSaveAs').onclick = async () => {
+        document.body.removeChild(modal);
+        
+        // Try using the File System Access API first (Chrome 86+)
+        if ('showSaveFilePicker' in window) {
+            try {
+                const fileHandle = await window.showSaveFilePicker({
+                    suggestedName: filename,
+                    types: [{
+                        description: 'Text files',
+                        accept: { 'text/plain': ['.cs', '.feature', '.txt'] }
+                    }]
+                });
+                
+                const writable = await fileHandle.createWritable();
+                await writable.write(content);
+                await writable.close();
+                
+                showToast(`📄 ${filename} saved successfully!`, 'success');
+                return;
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.warn('File System Access API failed:', error);
+                }
+                // Fall through to other methods if user cancelled or API failed
+            }
+        }
+        
+        // Fallback: Create a download link with download attribute to trigger save dialog
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        
+        // Add to DOM and trigger click
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
+        
+        showToast(`📄 ${filename} download started. Check your Downloads folder or save dialog.`, 'info');
+    };
+    
+    document.getElementById('copyContent').onclick = () => {
+        navigator.clipboard.writeText(content).then(() => {
+            document.body.removeChild(modal);
+            showToast(`📋 ${filename} content copied to clipboard! Create the file manually at: ${downloadPath}`, 'success');
+        }).catch(() => {
+            // Fallback for clipboard
+            const textArea = document.createElement('textarea');
+            textArea.value = content;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            document.body.removeChild(modal);
+            showToast(`� ${filename} content copied to clipboard! Create the file manually at: ${downloadPath}`, 'success');
+        });
+    };
+    
+    document.getElementById('closeModal').onclick = () => {
+        document.body.removeChild(modal);
+    };
+    
+    // Close on background click
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    };
+}
+
+function showContentViewModal(filename, content, downloadPath) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10001;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        max-width: 90%;
+        max-height: 90%;
+        width: 800px;
+        height: 600px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+    `;
+    
+    modalContent.innerHTML = `
+        <div style="margin-bottom: 15px; border-bottom: 1px solid #e5e7eb; padding-bottom: 15px;">
+            <h3 style="margin: 0 0 10px 0; color: #1f2937;">📄 ${filename}</h3>
+            <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                Target location: <strong style="color: #059669;">${downloadPath}</strong>
+            </p>
+        </div>
+        
+        <textarea readonly style="
+            flex: 1;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            background: #f9fafb;
+            color: #374151;
+            resize: none;
+            outline: none;
+        ">${content}</textarea>
+        
+        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: space-between;">
+            <button id="selectAllContent" style="
+                background: #6366f1;
+                color: white;
+                border: none;
+                padding: 10px 16px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+            ">🔤 Select All</button>
+            
+            <div style="display: flex; gap: 10px;">
+                <button id="copyFromView" style="
+                    background: #059669;
+                    color: white;
+                    border: none;
+                    padding: 10px 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">📋 Copy to Clipboard</button>
+                
+                <button id="downloadFromView" style="
+                    background: #dc2626;
+                    color: white;
+                    border: none;
+                    padding: 10px 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">📥 Download</button>
+                
+                <button id="closeViewModal" style="
+                    background: #6b7280;
+                    color: white;
+                    border: none;
+                    padding: 10px 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">✕ Close</button>
+            </div>
+        </div>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    const textarea = modalContent.querySelector('textarea');
+    
+    // Event handlers
+    document.getElementById('selectAllContent').onclick = () => {
+        textarea.select();
+        showToast('📄 Content selected! Use Ctrl+C to copy', 'info');
+    };
+    
+    document.getElementById('copyFromView').onclick = () => {
+        navigator.clipboard.writeText(content).then(() => {
+            showToast(`📋 ${filename} copied! Navigate to ${downloadPath}`, 'success');
+        }).catch(() => {
+            textarea.select();
+            document.execCommand('copy');
+            showToast(`📋 ${filename} copied! Navigate to ${downloadPath}`, 'success');
+        });
+    };
+    
+    document.getElementById('downloadFromView').onclick = () => {
+        fallbackDownload(filename, content);
+        showToast(`📄 ${filename} downloaded to Downloads folder`, 'info');
+    };
+    
+    document.getElementById('closeViewModal').onclick = () => {
+        document.body.removeChild(modal);
+    };
+    
+    // Close on background click
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    };
+}
+
+function fallbackDownload(filename, content) {
+    const blob = new Blob([content], { 
+        type: 'text/plain;charset=utf-8' 
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    
+    // Clean up immediately
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 100);
+    
+    showToast(`📄 ${filename} downloaded!`, 'success');
 }
