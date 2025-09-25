@@ -830,6 +830,37 @@
                         
                         <div id="projectStatus" style="margin-bottom: 1rem; font-size: 0.9rem;"></div>
                         
+                        <!-- File Selection Section -->
+                        <div style="margin-bottom: 1rem; padding: 0.8rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            <h5 style="margin: 0 0 0.8rem 0; color: #374151; font-size: 0.9rem; font-weight: 600;">📋 Select Files to Send:</h5>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #4b5563; cursor: pointer;">
+                                    <input type="checkbox" id="selectElementFile" checked style="accent-color: #16a34a;">
+                                    <span>📄 Element File (.cs)</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #4b5563; cursor: pointer;">
+                                    <input type="checkbox" id="selectPageFile" checked style="accent-color: #2563eb;">
+                                    <span>📄 Page File (.cs)</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #4b5563; cursor: pointer;">
+                                    <input type="checkbox" id="selectStepFile" checked style="accent-color: #d97706;">
+                                    <span>📄 Step File (.cs)</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #4b5563; cursor: pointer;">
+                                    <input type="checkbox" id="selectFeatureFile" checked style="accent-color: #7c3aed;">
+                                    <span>📄 Feature File (.feature)</span>
+                                </label>
+                            </div>
+                            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                                <button id="selectAllFiles" style="background: #10b981; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 500;">
+                                    ✅ Select All
+                                </button>
+                                <button id="deselectAllFiles" style="background: #ef4444; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 500;">
+                                    ❌ Deselect All
+                                </button>
+                            </div>
+                        </div>
+                        
                         <!-- Individual Send Buttons -->
                         <div style="margin-bottom: 1rem;">
                             <h5 style="margin: 0 0 0.5rem 0; color: #666; font-size: 0.9rem; font-weight: 600;">Send Individual Files to VS:</h5>
